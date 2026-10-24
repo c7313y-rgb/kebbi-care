@@ -1,0 +1,662 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Kebbi申し送り KPI計測</title>
+<meta name="description" content="Kebbi Care Shift OS 実証の申し送りKPIを入力・集計するアプリ">
+<meta name="theme-color" content="#0E6A87">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="icon" href="../icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="KPI計測">
+
+
+<style>
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0}
+[hidden]{display:none!important}
+img{max-width:100%}
+/* Layout: 上部に固定タブ。中身は1カラムの読みやすい幅、表とグラフは横スクロール枠に収める */
+:root{
+  --bg:#EEF3F5; --surface:#FFFFFF; --ink:#14222A; --muted:#55666F; --line:#D2DDE2;
+  --accent:#0E6A87; --accent-ink:#FFFFFF; --accent-soft:#DCEDF3;
+  --pre:#8C99A2; --post:#0E6A87; --oss:#B8642E;
+  --good:#1B7548; --good-soft:#DFF1E7; --warn:#946000; --warn-soft:#FBEFD4; --bad:#AF2A20; --bad-soft:#F8E1DE;
+  --f-disp:"Zen Maru Gothic","BIZ UDPGothic","Hiragino Sans","Yu Gothic",sans-serif;
+  --f-body:"BIZ UDPGothic","Hiragino Sans","Yu Gothic","Meiryo",sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0D1519; --surface:#152127; --ink:#E5EEF2; --muted:#9BABB4; --line:#2A3A43;
+  --accent:#55B6D6; --accent-ink:#06212B; --accent-soft:#163742;
+  --pre:#7D8A93; --post:#55B6D6; --oss:#E09A63;
+  --good:#5FC690; --good-soft:#163527; --warn:#E3B24C; --warn-soft:#3A2E12; --bad:#F2877E; --bad-soft:#3E1D1A; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0D1519; --surface:#152127; --ink:#E5EEF2; --muted:#9BABB4; --line:#2A3A43;
+  --accent:#55B6D6; --accent-ink:#06212B; --accent-soft:#163742;
+  --pre:#7D8A93; --post:#55B6D6; --oss:#E09A63;
+  --good:#5FC690; --good-soft:#163527; --warn:#E3B24C; --warn-soft:#3A2E12; --bad:#F2877E; --bad-soft:#3E1D1A; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.7}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+.wrap{max-width:1040px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header.top{background:var(--surface);border-bottom:1px solid var(--line)}
+header.top .wrap{padding-block:14px 6px;display:flex;flex-wrap:wrap;gap:6px 16px;align-items:baseline;justify-content:space-between}
+h1{font-family:var(--f-disp);font-size:1.45rem;margin:0;letter-spacing:.02em}
+h1 small{display:block;font-family:var(--f-body);font-size:.82rem;font-weight:400;color:var(--muted)}
+nav.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border-bottom:1px solid var(--line)}
+nav.tabs .wrap{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none}
+nav.tabs button{flex:0 0 auto;border:0;background:none;color:var(--muted);font:700 .98rem var(--f-body);padding:12px 14px;min-height:48px;border-bottom:3px solid transparent;cursor:pointer}
+nav.tabs button[aria-selected="true"]{color:var(--accent);border-bottom-color:var(--accent)}
+main{padding-block:18px 60px;display:flex;flex-direction:column;gap:18px}
+h2{font-family:var(--f-disp);font-size:1.2rem;margin:0 0 4px;text-wrap:balance}
+h3{font-size:1.02rem;margin:0 0 6px}
+p{margin:0}
+.sub{color:var(--muted);font-size:.9rem}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.banner{border-radius:10px;padding:12px 14px;font-size:.95rem;display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap}
+.banner.sample{background:var(--warn-soft);color:var(--ink);border:1px solid var(--warn)}
+.banner.local{background:var(--bad-soft);border:1px solid var(--bad)}
+.banner.ok{background:var(--good-soft);border:1px solid var(--good)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:14px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,215px),1fr));gap:12px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:2px}
+.tile .k{font-size:.88rem;color:var(--muted);font-weight:700}
+.tile .v{font-family:var(--f-disp);font-size:2rem;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.25}
+.tile .v small{font-size:.95rem;margin-left:3px}
+.tile .d{font-size:.85rem;color:var(--muted)}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:.93rem}
+th,td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{font-size:.82rem;color:var(--muted);font-weight:700;white-space:nowrap}
+.scroll>table{min-width:600px}
+.scroll>table td:first-child{min-width:190px}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.chip{display:inline-block;padding:1px 9px;border-radius:999px;font-size:.8rem;font-weight:700;white-space:nowrap}
+.chip.good{background:var(--good-soft);color:var(--good)}
+.chip.warn{background:var(--warn-soft);color:var(--warn)}
+.chip.bad{background:var(--bad-soft);color:var(--bad)}
+.chip.mute{background:var(--bg);color:var(--muted);border:1px solid var(--line)}
+button,.btn{font:700 1rem var(--f-body);min-height:48px;padding:10px 18px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+button.ghost{background:none}
+button.danger{color:var(--bad);border-color:var(--bad)}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,label.opt:focus-within{outline:3px solid var(--accent);outline-offset:2px}
+button:disabled{opacity:.45;cursor:not-allowed}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.field>.lab{font-weight:700;font-size:.97rem}
+.field>.hint{font-size:.84rem;color:var(--muted)}
+input[type=text],input[type=number],input[type=date],select,textarea{font:1.05rem var(--f-body);color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:10px;min-height:48px;padding:8px 12px;width:100%;max-width:100%}
+textarea{min-height:80px}
+.seg{display:flex;flex-wrap:wrap;gap:8px}
+label.opt{position:relative;display:inline-flex;align-items:center;min-height:48px;padding:8px 16px;border:1px solid var(--line);border-radius:10px;background:var(--surface);cursor:pointer;font-weight:700}
+label.opt input{position:absolute;opacity:0;pointer-events:none}
+label.opt:has(input:checked){background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.seg.scale label.opt{min-width:52px;justify-content:center;padding:8px 10px}
+.step{display:flex;align-items:stretch;gap:0;max-width:260px}
+.step button{min-width:56px;font-size:1.4rem;padding:0;border-radius:0}
+.step button:first-child{border-radius:10px 0 0 10px}
+.step button:last-child{border-radius:0 10px 10px 0}
+.step input{border-radius:0;text-align:center;font-size:1.25rem;font-variant-numeric:tabular-nums;border-left:0;border-right:0}
+.formgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr));gap:18px 20px}
+.watch{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.watch .t{font-family:var(--f-disp);font-size:1.9rem;font-variant-numeric:tabular-nums;min-width:5ch}
+.formtype{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));gap:10px}
+.formtype button{text-align:left;display:flex;flex-direction:column;gap:2px;align-items:flex-start;padding:12px 14px}
+.formtype button span{font-weight:400;font-size:.84rem;color:var(--muted)}
+.formtype button[aria-pressed="true"]{border:2px solid var(--accent);background:var(--accent-soft)}
+.sus{display:flex;flex-direction:column;gap:12px}
+.sus .q{display:flex;flex-direction:column;gap:6px;padding-bottom:10px;border-bottom:1px dashed var(--line)}
+.scale-lab{display:flex;justify-content:space-between;font-size:.78rem;color:var(--muted);max-width:330px}
+.steps{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:14px}
+.steps li{display:grid;grid-template-columns:auto 1fr;gap:4px 14px}
+.steps .when{grid-row:span 2;font-family:var(--f-disp);font-weight:700;color:var(--accent);white-space:nowrap;font-size:.95rem;padding-top:2px}
+.steps ul{margin:4px 0 0;padding-left:1.2em}
+.calc{font-variant-numeric:tabular-nums;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-size:.93rem;line-height:1.9}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.85rem;color:var(--muted)}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+svg text{font-family:var(--f-body)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:12px 18px;border-radius:10px;font-weight:700;z-index:20;max-width:calc(100% - 32px)}
+.mono{font-variant-numeric:tabular-nums}
+.dl{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:.93rem}
+.dl dt{color:var(--muted);font-weight:700}
+.dl dd{margin:0}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+<style>header.top,.toolbar-wrap{display:none!important}</style></head>
+<body>
+<header class="top"><div class="wrap">
+  <h1>Kebbi申し送り KPI計測<small>GENIAC-PRIZE 2026 テーマ1「Kebbi Care Shift OS」実証用｜株式会社ジェネラス × Edutex株式会社</small></h1>
+  <span class="sub" id="storeState">読み込み中…</span>
+</div></header>
+<nav class="tabs" aria-label="画面"><div class="wrap" role="tablist">
+  <button role="tab" data-tab="results" aria-selected="true">結果を見る</button>
+  <button role="tab" data-tab="input" aria-selected="false">計測を入力</button>
+  <button role="tab" data-tab="data" aria-selected="false">データの出力・取込</button>
+  <button role="tab" data-tab="guide" aria-selected="false">測定手順</button>
+  <button role="tab" data-tab="criteria" aria-selected="false">審査基準との対応</button>
+  <button role="tab" data-tab="settings" aria-selected="false">設定</button>
+</div></nav>
+<main class="wrap" id="main"></main>
+<div class="toast" id="toast" hidden></div>
+
+<link rel="stylesheet" href="enhance.css">
+<script src="papaparse.min.js"></script>
+<script src="secure-bootstrap.js"></script>
+<script src="shared.js"></script>
+<script>
+(()=>{
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const COLS=['handover','receive','ai','survey','kebbi'];
+const DEFAULTS={device:'',lastExport:'',sites:['ゆるり・あ鶴舞','KODOU','ほたる'],residentsDefault:20,perDay:2,receiversPerDay:null,wage:null,annualHours:null,
+  preStart:'2026-10-26',preEnd:'2026-10-30',postStart:'2026-10-31',postEnd:'2026-11-20'};
+const MODELS=['東大MedLLM','gpt-oss-120b'];
+const MODEL_FULL={'東大MedLLM':'Weblab-MedLLM-gpt-oss-120b（東京大学・国産）','gpt-oss-120b':'gpt-oss-120b（OpenAI・比較対照）'};
+const ERR_TYPES=['利用者の取り違え','同姓・呼び名の判別不可','略語・単位の誤変換','数値・時刻の誤り','否定の取り違え','根拠のない追加','重要事項の抜け落ち','7項目の分類誤り','医療・介護用語の誤り','やさしい日本語化の不自然さ','音声認識の誤り（モデル外）'];
+const BURDEN=['申し送りに時間がかかると感じる','必要な情報を探したり聞き直したりする手間が大きい','伝え漏れ・聞き漏れが不安だ','申し送りのために直接ケアの時間が削られている'];
+const SUS=['このしくみを今後もよく使いたい','このしくみは必要以上に複雑だ','このしくみは使いやすい','使うには詳しい人の助けが必要だ','機能がよくまとまっている','ちぐはぐで一貫性のないところが多い','たいていの人はすぐ使い方を覚えられる','とても扱いにくい','自信をもって使えた','使い始める前に覚えることが多かった'];
+const RECV_ROLES=['遅出スタッフ','ヘルプ看護師','外国人職員','その他'];
+const STAFF_ROLES=['記録担当','確定担当','遅出スタッフ','ヘルプ看護師','外国人職員','その他'];
+const N_MIN={handover:10,receive:10,ai:30,survey:8};
+
+const S={mode:'loading',uid:null,data:{},settings:{...DEFAULTS},tab:'input',form:'handover',site:'',watch:{}};
+COLS.forEach(c=>S.data[c]=[]);
+let db=null,dl=null;
+
+/* ---------- 汎用 ---------- */
+const median=a=>{const b=a.filter(v=>v!=null&&isFinite(v)).sort((x,y)=>x-y);if(!b.length)return null;const m=Math.floor(b.length/2);return b.length%2?b[m]:(b[m-1]+b[m])/2};
+const pctile=(a,p)=>{const b=a.filter(v=>v!=null&&isFinite(v)).sort((x,y)=>x-y);if(!b.length)return null;const i=Math.min(b.length-1,Math.ceil(p*b.length)-1);return b[Math.max(0,i)]};
+const mean=a=>{const b=a.filter(v=>v!=null&&isFinite(v));return b.length?b.reduce((x,y)=>x+y,0)/b.length:null};
+const sum=(a,f)=>a.reduce((x,r)=>x+(+f(r)||0),0);
+const ratio=(a,b)=>b?a/b:null;
+const f1=v=>v==null||!isFinite(v)?'—':(Math.round(v*10)/10).toLocaleString('ja-JP',{minimumFractionDigits:1,maximumFractionDigits:1});
+const f0=v=>v==null||!isFinite(v)?'—':Math.round(v).toLocaleString('ja-JP');
+const fp=v=>v==null||!isFinite(v)?'—':(v*100).toFixed(1)+'%';
+const today=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
+const num=v=>{if(v==null||v==='')return null;const n=Number(String(v).replace(/[,\s]/g,''));return isFinite(n)?n:null};
+function toast(m){const t=$('toast');t.textContent=m;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,3200)}
+async function copyText(text,ok){try{await navigator.clipboard.writeText(text);toast(ok)}catch(e){showCopyBox(text)}}
+function showCopyBox(text){const box=$('copyBox');if(box){box.hidden=false;box.value=text;box.focus();box.select();toast('自動コピーできませんでした。選択された文字をコピーしてください')}}
+const rid=()=>'r'+Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+
+/* ---------- 保存先 ---------- */
+const LS='kebbi-kpi-local-v1';
+function loadLocal(){try{const j=JSON.parse(localStorage.getItem(LS)||'null');if(j){COLS.forEach(c=>S.data[c]=j.data?.[c]||[]);if(j.settings)S.settings={...DEFAULTS,...j.settings}}}catch(e){}}
+function saveLocal(){try{localStorage.setItem(LS,JSON.stringify({data:S.data,settings:S.settings}))}catch(e){}publishExport()}
+function publishExport(){try{localStorage.setItem('kebbi-kpi-export-v1',JSON.stringify({at:new Date().toISOString(),device:devLabel(),csv:toCSV(flatRows(S.data))}))}catch(e){}}
+function ensureDevice(){if(!S.settings.devCode){S.settings.devCode='D'+Math.random().toString(36).slice(2,6).toUpperCase();saveLocal()}}
+const devLabel=()=>S.settings.device||S.settings.devCode||'';
+function unexported(){const t=S.settings.lastExport||'';return COLS.reduce((n,c)=>n+S.data[c].filter(r=>String(r.at||'')>t).length,0)}
+function markExported(){S.settings.lastExport=new Date().toISOString();saveLocal()}
+async function initStore(){
+  let user=null;
+  try{if(window.claude?.use){[db,user,dl]=await Promise.all([window.claude.use('db'),window.claude.use('user'),window.claude.use('downloads')])}}catch(e){db=null}
+  try{if(user)S.uid=await user.id()}catch(e){}
+  if(db){S.mode='db';
+    COLS.forEach(c=>db.collection(c).onSnapshot(snap=>{S.data[c]=snap.docs.map(d=>({...d.data(),id:d.id}));scheduleRender()},e=>{toast('データの受信が止まりました。ページを開き直してください')}));
+    db.doc('config/settings').onSnapshot(snap=>{if(snap.exists){S.settings={...DEFAULTS,...snap.data()}}scheduleRender()},()=>{});
+  }else{S.mode='local';loadLocal();ensureDevice();publishExport();try{navigator.storage?.persist?.()}catch(e){}}
+  scheduleRender(true)}
+let rq=null;function scheduleRender(force){if(rq)return;rq=requestAnimationFrame(()=>{rq=null;if(force||S.tab!=='input'||!document.activeElement||document.activeElement===document.body)render();else renderHeadOnly()})}
+async function addRec(col,obj,id,keepAt){obj={...obj,at:keepAt&&obj.at?obj.at:new Date().toISOString(),by:S.uid||'',dev:obj.dev||devLabel()};
+  if(S.mode==='db'){try{const ref=id?db.collection(col).doc(id):db.collection(col).doc();await ref.set(obj);return true}catch(e){toast(e.code==='quota_exceeded'?'保存容量の上限です。古い取込データを削除してください':'保存できませんでした（'+(e.code||'エラー')+'）。編集権限があるか確認してください');return false}}
+  obj.id=id||(S.settings.devCode+'-'+rid());S.data[col].push(obj);saveLocal();scheduleRender(true);return true}
+async function delRec(col,id){if(S.mode==='db'){try{await db.collection(col).doc(id).delete()}catch(e){toast('削除できませんでした')}}else{S.data[col]=S.data[col].filter(r=>r.id!==id);saveLocal();render()}}
+async function saveSettings(s){S.settings={...S.settings,...s};if(S.mode==='db'){try{await db.doc('config/settings').set(S.settings);toast('設定を保存しました')}catch(e){toast('設定を保存できませんでした。編集権限を確認してください')}}else{saveLocal();toast('設定を保存しました')}render()}
+
+/* ---------- 例のデータ（記録が1件もないときだけ表示） ---------- */
+function sampleData(){let seed=7;const r=()=>{seed=(seed*16807)%2147483647;return(seed-1)/2147483646};const g=(m,s)=>m+s*((r()+r()+r()-1.5)/0.75);
+  const sites=S.settings.sites.slice(0,3),d={handover:[],receive:[],ai:[],survey:[],kebbi:[]};const day=(base,i)=>{const t=new Date(base+'T00:00:00');t.setDate(t.getDate()+i);return t.toISOString().slice(0,10)};
+  sites.forEach((site,si)=>{
+    for(let i=0;i<5;i++)for(const slot of['朝7時','夜20時']){const res=Math.round(g(12,2));d.handover.push({phase:'pre',site,date:day(S.settings.preStart,i),slot,method:'従来',minutes:+Math.max(8,g(19,3.5)).toFixed(1),residents:res,staff:3,reasks:Math.round(Math.max(0,g(3,1.4))),keyTotal:Math.round(g(6,1.5)),keyMissed:Math.round(Math.max(0,g(1.1,.8)))})}
+    for(let i=0;i<21;i+=2)for(const slot of['朝7時','夜20時']){const res=Math.round(g(12,2));d.handover.push({phase:'post',site,date:day(S.settings.postStart,i),slot,method:'Kebbi',minutes:+Math.max(6,g(13.5+(i<6?2:0),2.8)).toFixed(1),residents:res,staff:3,reasks:Math.round(Math.max(0,g(1.1,.9))),keyTotal:Math.round(g(6,1.5)),keyMissed:Math.round(Math.max(0,g(.4,.5)))})}
+    for(let i=0;i<5;i++)for(const role of['遅出スタッフ','ヘルプ看護師','外国人職員'])d.receive.push({phase:'pre',site,date:day(S.settings.preStart,i),role,findMinutes:+Math.max(2,g(9,2.5)).toFixed(1),searches:Math.round(Math.max(0,g(2.2,1))),qTotal:3,qCorrect:Math.min(3,Math.round(g(role==='外国人職員'?1.6:2.1,.6)))});
+    for(let i=0;i<21;i+=2)for(const role of['遅出スタッフ','ヘルプ看護師','外国人職員'])d.receive.push({phase:'post',site,date:day(S.settings.postStart,i),role,findMinutes:+Math.max(1,g(4.2,1.6)).toFixed(1),searches:Math.round(Math.max(0,g(.5,.6))),qTotal:3,qCorrect:Math.min(3,Math.round(g(role==='外国人職員'?2.4:2.6,.4)))});
+    for(let k=0;k<4;k++)d.survey.push({phase:'pre',site,role:STAFF_ROLES[k],burden:BURDEN.map(()=>Math.min(5,Math.max(1,Math.round(g(3.9,.7)))))});
+    for(let k=0;k<4;k++){const sus=SUS.map((_,j)=>Math.min(5,Math.max(1,Math.round(j%2?g(2,.7):g(4,.7)))));d.survey.push({phase:'post',site,role:STAFF_ROLES[k],burden:BURDEN.map(()=>Math.min(5,Math.max(1,Math.round(g(2.7,.7))))),sus})}
+    for(let i=0;i<12;i++)for(const model of MODELS){const tok=model===MODELS[0];const idT=Math.round(g(5,1.5));const sent=Math.round(g(8,2));
+      d.ai.push({date:day(S.settings.postStart,i),site,model,recId:`H${si+1}${String(i).padStart(3,'0')}`,idTotal:idT,idCorrect:Math.max(0,idT-(r()<(tok?.18:.25)?1:0)),tagTP:Math.round(g(6,1.2)),tagFP:r()<(tok?.25:.35)?1:0,tagFN:r()<(tok?.3:.35)?1:0,sentTotal:sent,errFact:r()<(tok?.12:.22)?1:0,errAdded:r()<(tok?.08:.15)?1:0,errMissing:r()<.15?1:0,editTried:1,editOk:r()<(tok?.85:.8)?1:0,termTotal:2,termCorrect:r()<(tok?.85:.7)?2:1,latencySec:+g(tok?9:7,2).toFixed(1),errorTypes:r()<.3?[ERR_TYPES[Math.floor(r()*ERR_TYPES.length)]]:[]})}
+    const per=[];for(let i=0;i<21;i++){if(r()<.08)continue;per.push({site,date:day(S.settings.postStart,i),n:Math.round(g(2.3,.6)),rows:Math.round(g(18,4)),staff:Math.round(g(4,1)),corr:Math.round(g(.7,.6)),auto:Math.round(g(15,4)),recv:Math.round(g(2,.5)),durSum:g(20,4),durN:2,leadSum:g(60,20),leadN:2,unid:Math.round(Math.max(0,g(.5,.6)))})}
+    d.kebbi.push({fileName:'例',importedAt:'',staffTotal:Math.round(g(9,2)),perDay:per})});
+  let i=0;for(const c of COLS)d[c].forEach(r=>r.id='EX'+(i++));
+  return d}
+
+/* ---------- 計算 ---------- */
+function filt(rows){return S.site?rows.filter(r=>r.site===S.site):rows}
+function kebbiDays(data,all){const map=new Map();const imps=[...data.kebbi].sort((a,b)=>String(a.importedAt).localeCompare(String(b.importedAt)));
+  for(const im of imps)for(const p of im.perDay||[])map.set(p.site+'|'+p.date,p);
+  return[...map.values()].filter(p=>all||!S.site||p.site===S.site)}
+function compute(data){const st=S.settings;const out={};
+  const ho={pre:filt(data.handover.filter(r=>r.phase==='pre')),post:filt(data.handover.filter(r=>r.phase==='post'))};
+  const rc={pre:filt(data.receive.filter(r=>r.phase==='pre')),post:filt(data.receive.filter(r=>r.phase==='post'))};
+  const sv={pre:filt(data.survey.filter(r=>r.phase==='pre')),post:filt(data.survey.filter(r=>r.phase==='post'))};
+  for(const p of['pre','post']){const h=ho[p],c=rc[p],s=sv[p];
+    out[p]={nHo:h.length,min:median(h.map(r=>r.minutes)),minMean:mean(h.map(r=>r.minutes)),perRes:median(h.map(r=>r.residents?r.minutes*60/r.residents:null)),
+      reasks:mean(h.map(r=>r.reasks)),leak:ratio(sum(h,r=>r.keyMissed),sum(h,r=>r.keyTotal)),keyN:sum(h,r=>r.keyTotal),
+      nRc:c.length,find:median(c.map(r=>r.findMinutes)),searches:mean(c.map(r=>r.searches)),grasp:ratio(sum(c,r=>r.qCorrect),sum(c,r=>r.qTotal)),qN:sum(c,r=>r.qTotal),
+      graspF:ratio(sum(c.filter(r=>r.role==='外国人職員'),r=>r.qCorrect),sum(c.filter(r=>r.role==='外国人職員'),r=>r.qTotal)),nF:c.filter(r=>r.role==='外国人職員').length,
+      graspO:ratio(sum(c.filter(r=>r.role!=='外国人職員'),r=>r.qCorrect),sum(c.filter(r=>r.role!=='外国人職員'),r=>r.qTotal)),nO:c.filter(r=>r.role!=='外国人職員').length,
+      nSv:s.length,burden:mean(s.map(r=>mean(r.burden||[]))),
+      sus:mean(s.filter(r=>Array.isArray(r.sus)&&r.sus.length===10).map(r=>susScore(r.sus))),nSus:s.filter(r=>Array.isArray(r.sus)&&r.sus.length===10).length,
+      minutes:h.map(r=>r.minutes)}}
+  out.ai={};const ai=filt(data.ai);
+  for(const m of MODELS){const a=ai.filter(r=>r.model===m);const tp=sum(a,r=>r.tagTP),fpv=sum(a,r=>r.tagFP),fn=sum(a,r=>r.tagFN);const pr=ratio(tp,tp+fpv),re=ratio(tp,tp+fn);
+    const types={};a.forEach(r=>(r.errorTypes||[]).forEach(t=>types[t]=(types[t]||0)+1));
+    out.ai[m]={n:a.length,idAcc:ratio(sum(a,r=>r.idCorrect),sum(a,r=>r.idTotal)),termAcc:ratio(sum(a,r=>r.termCorrect),sum(a,r=>r.termTotal)),precision:pr,recall:re,f1:(2*tp+fpv+fn)>0?2*tp/(2*tp+fpv+fn):null,
+      errRate:ratio(sum(a,r=>(+r.errFact||0)+(+r.errAdded||0)+(+r.errMissing||0)),sum(a,r=>r.sentTotal)),addRate:ratio(sum(a,r=>r.errAdded),sum(a,r=>r.sentTotal)),
+      clean:ratio(a.filter(r=>!(+r.errFact||+r.errAdded||+r.errMissing)).length,a.length),
+      editRate:ratio(sum(a,r=>r.editOk),sum(a,r=>r.editTried)),lat:median(a.map(r=>r.latencySec)),lat90:pctile(a.map(r=>r.latencySec),.9),types}}
+  const kd=kebbiDays(data);const totalDays=daysBetween(st.postStart,st.postEnd);const usedDates=new Set(kd.filter(p=>p.n>0).map(p=>p.date));
+  const n=sum(kd,p=>p.n);
+  out.kebbi={days:kd,usedDays:usedDates.size,totalDays,n,perDay:totalDays?n/totalDays/(S.site?1:Math.max(1,new Set(kd.map(p=>p.site)).size)):null,
+    staff:S.site?null:Math.max(0,...data.kebbi.map(i=>i.staffTotal||0)),corrRate:ratio(sum(kd,p=>p.corr),n),autoRate:ratio(sum(kd,p=>p.auto),sum(kd,p=>p.rows)),
+    recvRate:ratio(sum(kd,p=>p.recv),n),dur:ratio(sum(kd,p=>p.durSum),sum(kd,p=>p.durN)),lead:ratio(sum(kd,p=>p.leadSum),sum(kd,p=>p.leadN)),unid:ratio(sum(kd,p=>p.unid),sum(kd,p=>p.rows))};
+  // 効果の換算
+  const save=out.pre.min!=null&&out.post.min!=null?out.pre.min-out.post.min:null;const saveR=out.pre.find!=null&&out.post.find!=null?out.pre.find-out.post.find:null;
+  const perDay=num(st.perDay),rpd=num(st.receiversPerDay),siteN=S.site?1:Math.max(1,st.sites.length);
+  const daily=save!=null&&perDay?save*perDay+(saveR!=null&&rpd?saveR*rpd:0):null;
+  const yearSite=daily!=null?daily*365/60:null;const yearAll=yearSite!=null?yearSite*siteN:null;
+  out.impact={save,saveR,perDay,rpd,siteN,daily,yearSite,yearAll,cost:yearAll!=null&&num(st.wage)?yearAll*num(st.wage):null,fte:yearAll!=null&&num(st.annualHours)?yearAll/num(st.annualHours):null,
+    rate:out.pre.min&&out.post.min!=null?(out.pre.min-out.post.min)/out.pre.min:null};
+  return out}
+function susScore(a){let s=0;a.forEach((v,i)=>{s+=i%2===0?(v-1):(5-v)});return s*2.5}
+function daysBetween(a,b){if(!a||!b)return 0;return Math.round((new Date(b+'T00:00:00')-new Date(a+'T00:00:00'))/864e5)+1}
+function isEmpty(){return COLS.every(c=>!S.data[c].length)}
+function current(){return S.data}
+
+/* ---------- 表示部品 ---------- */
+function chg(pre,post,downGood){if(pre==null||post==null||!isFinite(pre)||!isFinite(post))return '<span class="chip mute">比較不可</span>';
+  if(pre===0)return '<span class="chip mute">導入前0</span>';const p=(post-pre)/Math.abs(pre);const good=downGood?p<0:p>0;
+  return `<span class="chip ${Math.abs(p)<.02?'mute':good?'good':'bad'}">${p>0?'+':''}${(p*100).toFixed(1)}%</span>`}
+function nChip(n,min){return n>=min?`<span class="chip good">n=${n}</span>`:n?`<span class="chip warn" title="目安 ${min} 件以上">n=${n}・不足</span>`:'<span class="chip mute">未計測</span>'}
+function stripChart(pre,post){const all=[...pre,...post].filter(v=>v!=null);if(!all.length)return '<p class="sub">申し送り時間の計測がまだありません。</p>';
+  const W=640,H=170,L=88,R=24,max=Math.ceil(Math.max(...all)/5)*5||5,x=v=>L+(W-L-R)*v/max;
+  const ticks=[];for(let t=0;t<=max;t+=5)ticks.push(t);
+  const row=(vals,y,col,label)=>{const md=median(vals);let jit=0;return `<text x="${L-10}" y="${y+5}" text-anchor="end" font-size="13" fill="var(--ink)" font-weight="700">${label}</text>`+
+    vals.map(v=>{jit=(jit+7)%21;return `<circle cx="${x(v).toFixed(1)}" cy="${(y-10+jit).toFixed(1)}" r="4.5" fill="${col}" fill-opacity=".55"/>`}).join('')+
+    (md!=null?`<line x1="${x(md)}" x2="${x(md)}" y1="${y-18}" y2="${y+20}" stroke="${col}" stroke-width="3"/><text x="${x(md)}" y="${y-24}" text-anchor="middle" font-size="12" fill="var(--ink)" font-weight="700">中央値 ${f1(md)}分</text>`:'')};
+  return `<div class="scroll"><svg viewBox="0 0 ${W} ${H}" width="100%" style="min-width:520px" role="img" aria-label="申し送り1回の所要時間の分布">
+    ${ticks.map(t=>`<line x1="${x(t)}" x2="${x(t)}" y1="20" y2="${H-26}" stroke="var(--line)"/><text x="${x(t)}" y="${H-8}" text-anchor="middle" font-size="12" fill="var(--muted)">${t}</text>`).join('')}
+    <text x="${W-R}" y="${H-8}" text-anchor="end" font-size="12" fill="var(--muted)">分</text>
+    ${row(pre,58,'var(--pre)','導入前')}${row(post,118,'var(--post)','Kebbi実証')}</svg></div>`}
+function modelBars(ai){const mets=[['利用者識別の正解率','idAcc'],['登録用語の正しい表記','termAcc'],['7項目分類 F1','f1'],['誤りのない要約の割合','clean'],['部分訂正の成功率','editRate']];
+  const W=640,rowH=54,H=mets.length*rowH+20,L=170,R=60,x=v=>L+(W-L-R)*v;
+  return `<div class="scroll"><svg viewBox="0 0 ${W} ${H}" width="100%" style="min-width:520px" role="img" aria-label="国産モデルと比較モデルの精度比較">
+   ${[0,.25,.5,.75,1].map(t=>`<line x1="${x(t)}" x2="${x(t)}" y1="6" y2="${H-14}" stroke="var(--line)"/><text x="${x(t)}" y="${H}" text-anchor="middle" font-size="11" fill="var(--muted)">${t*100}%</text>`).join('')}
+   ${mets.map(([lab,k],i)=>{const y=10+i*rowH;return `<text x="${L-10}" y="${y+24}" text-anchor="end" font-size="13" fill="var(--ink)">${lab}</text>`+
+     MODELS.map((m,j)=>{const v=ai[m][k];const col=j?'var(--oss)':'var(--post)';return v==null?`<text x="${L+4}" y="${y+14+j*20}" font-size="11" fill="var(--muted)">データなし</text>`:
+       `<rect x="${L}" y="${y+4+j*20}" width="${Math.max(1,x(v)-L).toFixed(1)}" height="16" rx="3" fill="${col}"/><text x="${(x(v)+6).toFixed(1)}" y="${y+17+j*20}" font-size="12" fill="var(--ink)" class="mono">${fp(v)}</text>`}).join('')}).join('')}
+  </svg></div><div class="legend"><span><i style="background:var(--post)"></i>${MODEL_FULL[MODELS[0]]}</span><span><i style="background:var(--oss)"></i>${MODEL_FULL[MODELS[1]]}</span></div>`}
+function usageChart(k){const st=S.settings;const n=daysBetween(st.postStart,st.postEnd);if(!n||n>120)return '';const by=new Map();k.days.forEach(p=>by.set(p.date,(by.get(p.date)||0)+(+p.n||0)));
+  if(!by.size)return '<p class="sub">Kebbiの申し送りCSVを取り込むと、日ごとの利用回数が表示されます。</p>';
+  const days=[];for(let i=0;i<n;i++){const d=new Date(st.postStart+'T00:00:00');d.setDate(d.getDate()+i);days.push(ymd(d))}
+  const max=Math.max(2,...by.values()),W=640,H=170,L=34,R=10,T=14,B=30,bw=(W-L-R)/n;const y=v=>T+(H-T-B)*(1-v/max);
+  const ticks=[0,Math.round(max/2),max];
+  return `<div class="scroll"><svg viewBox="0 0 ${W} ${H}" width="100%" style="min-width:520px" role="img" aria-label="実証期間中の日別Kebbi利用回数">
+   ${ticks.map(t=>`<line x1="${L}" x2="${W-R}" y1="${y(t)}" y2="${y(t)}" stroke="var(--line)"/><text x="${L-6}" y="${y(t)+4}" text-anchor="end" font-size="11" fill="var(--muted)">${t}</text>`).join('')}
+   ${days.map((d,i)=>{const v=by.get(d)||0;const lab=i%3===0?`<text x="${L+bw*i+bw/2}" y="${H-10}" text-anchor="middle" font-size="11" fill="var(--muted)">${+d.slice(5,7)}/${+d.slice(8)}</text>`:'';
+     return (v?`<rect x="${(L+bw*i+2).toFixed(1)}" y="${y(v).toFixed(1)}" width="${(bw-4).toFixed(1)}" height="${(y(0)-y(v)).toFixed(1)}" rx="2" fill="var(--post)"/>`:`<rect x="${(L+bw*i+2).toFixed(1)}" y="${y(0)-3}" width="${(bw-4).toFixed(1)}" height="3" fill="var(--bad)"/>`)+lab}).join('')}
+  </svg></div><p class="sub">棒＝その日の申し送り（録音）回数。赤い線＝利用なしの日。</p>`}
+
+/* ---------- 結果 ---------- */
+function renderResults(){const sample=false;const c=compute(current());const st=S.settings;const pre=c.pre,post=c.post,I=c.impact,k=c.kebbi;
+  const siteSel=`<label class="field" style="max-width:260px"><span class="lab">拠点</span><select id="siteSel"><option value="">全拠点</option>${st.sites.map(s=>`<option ${s===S.site?'selected':''}>${esc(s)}</option>`).join('')}</select></label>`;
+  const banner=sample?`<div class="banner sample"><b>例のデータを表示中</b><span>まだ記録がないため、画面の見え方を示す架空の数値を出しています。「計測を入力」で1件目を保存すると、実データに切り替わります。</span></div>`:'';
+  const tiles=`<div class="tiles">
+   <div class="tile"><span class="k">申し送り1回の所要時間</span><span class="v">${f1(post.min)}<small>分</small></span><span class="d">導入前 ${f1(pre.min)}分 → 実証 ${chg(pre.min,post.min,true)}（中央値）</span></div>
+   <div class="tile"><span class="k">引継ぎ把握率（受け手の正答率）</span><span class="v">${fp(post.grasp)}</span><span class="d">導入前 ${fp(pre.grasp)}　${chg(pre.grasp,post.grasp,false)}</span></div>
+   <div class="tile"><span class="k">重要事項の伝達漏れ率</span><span class="v">${fp(post.leak)}</span><span class="d">導入前 ${fp(pre.leak)}　${chg(pre.leak,post.leak,true)}</span></div>
+   <div class="tile"><span class="k">年間の削減時間（${S.site?'この拠点':'全'+I.siteN+'拠点'}）</span><span class="v">${f0(I.yearAll)}<small>時間</small></span><span class="d">${I.yearAll==null?'設定で「1日の申し送り回数」を入れると計算します':'計算の内訳は下の「波及効果」'}</span></div></div>`;
+  const rowK=(label,a,b,unit,fmt,downGood,n1,n2,min,how)=>`<tr><td><b>${label}</b><div class="sub">${how}</div></td><td class="n">${fmt(a)}${unit}</td><td class="n">${fmt(b)}${unit}</td><td class="n">${chg(a,b,downGood)}</td><td class="n">${nChip(n1,min)} ${nChip(n2,min)}</td></tr>`;
+  const effect=`<div class="card"><h2>業務の再設計・導入効果</h2><p class="sub">導入前（従来の申し送り）と実証（Kebbi）を同じ定義で比べた結果。時間は中央値、件数は平均または合計比率。</p>
+   <div class="scroll"><table><thead><tr><th>指標</th><th class="n">導入前</th><th class="n">実証</th><th class="n">変化</th><th class="n">件数（前／実証）</th></tr></thead><tbody>
+   ${rowK('申し送り1回の所要時間',pre.min,post.min,'分',f1,true,pre.nHo,post.nHo,N_MIN.handover,'開始の声かけ〜受け手の「了解」まで')}
+   ${rowK('利用者1人あたりの申し送り時間',pre.perRes,post.perRes,'秒',f0,true,pre.nHo,post.nHo,N_MIN.handover,'所要時間 ÷ 対象利用者数（日による人数差をならす）')}
+   ${rowK('聞き直しの回数（1回あたり）',pre.reasks,post.reasks,'回',f1,true,pre.nHo,post.nHo,N_MIN.handover,'受け手が聞き返した回数')}
+   ${rowK('重要事項の伝達漏れ率',pre.leak,post.leak,'',fp,true,pre.nHo,post.nHo,N_MIN.handover,'伝わらなかった件数 ÷ 伝えるべき重要事項数')}
+   ${rowK('後から来た職員が情報を得るまでの時間',pre.find,post.find,'分',f1,true,pre.nRc,post.nRc,N_MIN.receive,'遅出スタッフ・ヘルプ看護師・外国人職員が必要な情報を把握するまで')}
+   ${rowK('情報を得るために職員を探した回数',pre.searches,post.searches,'回',f1,true,pre.nRc,post.nRc,N_MIN.receive,'1回の確認あたり')}
+   ${rowK('引継ぎ把握率',pre.grasp,post.grasp,'',fp,false,pre.nRc,post.nRc,N_MIN.receive,'確認問題の正答数 ÷ 出題数')}
+   ${rowK('　うち外国人職員の把握率',pre.graspF,post.graspF,'',fp,false,pre.nF,post.nF,5,'やさしい日本語での読み上げの効果を見る')}
+   ${rowK('　うち日本人職員などの把握率',pre.graspO,post.graspO,'',fp,false,pre.nO,post.nO,N_MIN.receive,'外国人職員以外の受け手')}
+   ${rowK('負担感（1〜5、低いほど良い）',pre.burden,post.burden,'',f1,true,pre.nSv,post.nSv,N_MIN.survey,'職員アンケート4問の平均')}
+   </tbody></table></div>
+   <h3>申し送り1回の所要時間の分布</h3>${stripChart(pre.minutes,post.minutes)}
+   <h3>継続して使われているか（Kebbiの記録から）</h3>
+   <div class="scroll"><table><tbody>
+    <tr><td>実証期間中に使われた日</td><td class="n">${k.usedDays} ／ ${k.totalDays} 日</td><td>利用率 ${fp(ratio(k.usedDays,k.totalDays))}</td></tr>
+    <tr><td>1拠点1日あたりの申し送り回数</td><td class="n">${f1(k.perDay)} 回</td><td>延べ ${f0(k.n)} 回</td></tr>
+    <tr><td>Kebbiを使った職員の数</td><td class="n">${k.staff==null?'—':f0(k.staff)} 人</td><td>${S.site?'拠点別は取込ファイル単位でのみ集計':'取り込んだCSVの記録者ID（重複なし）'}</td></tr>
+    <tr><td>録音開始から確定までの平均</td><td class="n">${f1(k.dur)} 分</td><td>確定から受け手の確認まで 平均 ${f1(k.lead)} 分</td></tr>
+    <tr><td>AI要約を職員が直した割合</td><td class="n">${fp(k.corrRate)}</td><td>低いほどAIの要約をそのまま使えている</td></tr>
+   </tbody></table></div>${usageChart(k)}</div>`;
+  const cs=v=>v==null?'<b>未設定</b>':esc(String(v));
+  const impact=`<div class="card"><h2>ユースケースの波及効果（時間と費用への換算）</h2>
+   <div class="calc">
+    ① 1回あたりの短縮 ＝ 導入前 ${f1(pre.min)}分 − 実証 ${f1(post.min)}分 ＝ <b>${f1(I.save)}分</b>（短縮率 ${fp(I.rate)}）<br>
+    ② 受け手1人あたりの短縮 ＝ ${f1(pre.find)}分 − ${f1(post.find)}分 ＝ <b>${f1(I.saveR)}分</b><br>
+    ③ 1拠点1日の短縮 ＝ ①×申し送り回数 ${cs(I.perDay)}回 ＋ ②×受け手の確認 ${cs(I.rpd)}回 ＝ <b>${f1(I.daily)}分</b><br>
+    ④ 1拠点の年間 ＝ ③×365日÷60 ＝ <b>${f0(I.yearSite)}時間</b><br>
+    ⑤ 対象拠点の年間 ＝ ④×${I.siteN}拠点 ＝ <b>${f0(I.yearAll)}時間</b><br>
+    ⑥ 人件費換算 ＝ ⑤×時給 ${cs(st.wage)}円 ＝ <b>${I.cost==null?'—':f0(I.cost)+'円'}</b>　／　⑦ 人数換算 ＝ ⑤÷年間労働時間 ${cs(st.annualHours)}時間 ＝ <b>${I.fte==null?'—':f1(I.fte)+'人分'}</b>
+   </div><p class="sub">申し送りに参加する職員数を掛けていないため、職員の延べ時間ではなく「申し送りという業務の時間」の削減です。延べ時間で示す場合は③に参加職員数を掛けてください。時給・年間労働時間はジェネラスの実数を「設定」に入れてください。</p></div>`;
+  const ai=c.ai;const m0=ai[MODELS[0]],m1=ai[MODELS[1]];
+  const arow=(lab,k2,fmt,good)=>`<tr><td>${lab}</td><td class="n">${fmt(m0[k2])}</td><td class="n">${fmt(m1[k2])}</td><td>${m0[k2]==null||m1[k2]==null?'':((good?m0[k2]>m1[k2]:m0[k2]<m1[k2])?'<span class="chip good">国産が優位</span>':m0[k2]===m1[k2]?'<span class="chip mute">同等</span>':'<span class="chip warn">比較モデルが優位</span>')}</td></tr>`;
+  const types=ERR_TYPES.map(t=>[t,m0.types[t]||0,m1.types[t]||0]).filter(r=>r[1]||r[2]);
+  const tech=`<div class="card"><h2>技術の優位性・国産基盤モデル開発への貢献</h2><p class="sub">同じ申し送りの書き起こしを2つのモデルに入れ、評価者が元の発話と照らして採点した結果。</p>
+   ${modelBars(ai)}
+   <div class="scroll"><table><thead><tr><th>指標</th><th class="n">国産（東大）</th><th class="n">比較（gpt-oss）</th><th></th></tr></thead><tbody>
+    <tr><td>評価した記録の数</td><td class="n">${nChip(m0.n,N_MIN.ai)}</td><td class="n">${nChip(m1.n,N_MIN.ai)}</td><td></td></tr>
+    ${arow('利用者識別の正解率','idAcc',fp,true)}${arow('登録用語（略語・単位・業界語）の正しい表記率','termAcc',fp,true)}${arow('7項目分類 適合率（付けたタグの正しさ）','precision',fp,true)}${arow('7項目分類 再現率（付け漏れの少なさ）','recall',fp,true)}${arow('7項目分類 F1','f1',fp,true)}
+    ${arow('要約の誤り率（誤り数÷文数）','errRate',fp,false)}${arow('根拠のない追加の割合','addRate',fp,false)}${arow('誤りのない要約の割合','clean',fp,true)}${arow('部分訂正の成功率','editRate',fp,true)}
+    ${arow('AI処理時間 中央値（秒）','lat',f1,false)}${arow('AI処理時間 90%点（秒）','lat90',f1,false)}
+    <tr><td>使いやすさ（SUS 0〜100）</td><td class="n" colspan="2">${f1(post.sus)}（回答 ${post.nSus}人）</td><td></td></tr>
+   </tbody></table></div>
+   <h3>誤りの種類（モデル開発者へ返す内容）</h3>
+   ${types.length?`<div class="scroll"><table><thead><tr><th>誤りの種類</th><th class="n">国産（東大）</th><th class="n">比較（gpt-oss）</th></tr></thead><tbody>${types.map(r=>`<tr><td>${esc(r[0])}</td><td class="n">${r[1]}</td><td class="n">${r[2]}</td></tr>`).join('')}</tbody></table></div>`:'<p class="sub">誤りの種類はまだ記録されていません。</p>'}
+  </div>`;
+  return `${banner}<div class="row" style="justify-content:space-between;align-items:flex-end"><div><h2>実証の結果</h2><p class="sub">導入前 ${st.preStart}〜${st.preEnd}　／　実証 ${st.postStart}〜${st.postEnd}</p></div>${siteSel}</div>${tiles}${effect}${impact}${tech}`}
+
+/* ---------- 入力 ---------- */
+const seg=(name,opts,val,cls='')=>`<div class="seg ${cls}" role="radiogroup">${opts.map(o=>{const[v,l]=Array.isArray(o)?o:[o,o];return `<label class="opt"><input type="radio" name="${name}" value="${esc(v)}" ${String(v)===String(val)?'checked':''}><span>${esc(l)}</span></label>`}).join('')}</div>`;
+const stepper=(id,val,min=0,max=99)=>`<div class="step"><button type="button" data-step="${id}" data-d="-1" aria-label="1減らす">−</button><input type="number" id="${id}" inputmode="numeric" value="${val??''}" min="${min}" max="${max}"><button type="button" data-step="${id}" data-d="1" aria-label="1増やす">＋</button></div>`;
+const fld=(lab,inner,hint='')=>`<div class="field"><span class="lab">${lab}</span>${inner}${hint?`<span class="hint">${hint}</span>`:''}</div>`;
+const watch=(id)=>`<div class="watch"><span class="t" id="${id}_t">0:00</span><button type="button" class="primary" data-watch="${id}">スタート</button><button type="button" class="ghost" data-wreset="${id}">リセット</button></div>`;
+function defaultPhase(){return today()>=S.settings.postStart?'post':'pre'}
+function common(){const st=S.settings;return fld('測定の時期',seg('phase',[['pre','導入前（従来の方法）'],['post','実証（Kebbi）']],defaultPhase()))+
+  fld('拠点',seg('site',st.sites,S.site||st.sites[0]))+fld('日付',`<input type="date" id="date" value="${today()}">`)}
+function renderInput(){const F=S.form;const types=[['handover','申し送りの時間','計測係がストップウォッチで測る'],['receive','後から来た職員の確認','遅出・ヘルプ看護師の情報把握'],['ai','AIの精度チェック','評価担当が要約を採点'],['survey','職員アンケート','負担感と使いやすさ']];
+  let body='';
+  if(F==='handover')body=`<div class="formgrid">${common()}${fld('時間帯',seg('slot',['朝7時','夜20時','その他'],'朝7時'))}</div>
+    ${fld('申し送りの所要時間',watch('w1')+`<div class="row"><input type="number" id="minutes" step="0.1" min="0" inputmode="decimal" placeholder="例 15.5" style="max-width:200px"><span>分</span></div>`,'開始の声かけでスタート、受け手の「了解」でストップ。ストップすると分が自動で入ります。手入力も可。')}
+    <div class="formgrid">${fld('対象の利用者数',stepper('residents',S.settings.residentsDefault??'',0,99),'この申し送りで話題にした利用者の数')}${fld('参加した職員数',stepper('staff',2,1,20))}
+    ${fld('聞き直しの回数',stepper('reasks',0),'受け手が「もう一度」「誰のこと？」と聞き返した回数')}
+    ${fld('伝えるべき重要事項の数',stepper('keyTotal',0),'リーダーが当日の介護記録から数える（転倒・発熱・服薬変更など）')}
+    ${fld('そのうち伝わらなかった数',stepper('keyMissed',0),'申し送りに出てこなかった、または誤って伝わった件数')}</div>
+    ${fld('メモ（任意）','<input type="text" id="memo" placeholder="例 新人職員が参加、Kebbiの再起動あり">')}`;
+  if(F==='receive')body=`<div class="formgrid">${common()}${fld('受け手',seg('role',RECV_ROLES,'遅出スタッフ'))}</div>
+    ${fld('必要な情報を把握するまでの時間',watch('w2')+`<div class="row"><input type="number" id="findMinutes" step="0.1" min="0" inputmode="decimal" placeholder="例 6.0" style="max-width:200px"><span>分</span></div>`,'出勤して情報を取りに行った時点でスタート、本人が「把握できた」と言った時点でストップ')}
+    <div class="formgrid">${fld('情報を得るために職員を探した回数',stepper('searches',0))}
+    ${fld('確認問題の数',stepper('qTotal',3,1,10),'把握した直後に、リーダーが確定記録から3問出す')}${fld('正しく答えられた数',stepper('qCorrect',0,0,10))}</div>`;
+  if(F==='ai')body=`<div class="formgrid">${fld('評価日',`<input type="date" id="date" value="${today()}">`)}${fld('拠点',seg('site',S.settings.sites,S.site||S.settings.sites[0]))}
+    ${fld('記録ID',`<input type="text" id="recId" placeholder="例 H1003">`,'Kebbiの申し送りID。2つのモデルで同じIDを採点する')}${fld('採点したモデル',seg('model',MODELS.map(m=>[m,m==='東大MedLLM'?'国産（東大MedLLM）':'比較（gpt-oss-120b）']),MODELS[0]))}</div>
+    <h3>利用者の識別</h3><div class="formgrid">${fld('識別すべき利用者の数',stepper('idTotal',0))}${fld('正しく識別できた数',stepper('idCorrect',0))}</div>
+    <h3>7項目の分類（食事量・排尿・排便・体調変化・不穏行動・睡眠・服薬）</h3><div class="formgrid">${fld('正しく付いたタグ',stepper('tagTP',0))}${fld('誤って付いたタグ',stepper('tagFP',0))}${fld('付け漏れたタグ',stepper('tagFN',0))}</div>
+    <h3>登録した用語の認識</h3><div class="formgrid">${fld('発話に出た登録用語の数',stepper('termTotal',0),'「呼称・用語登録」にある略語・単位・業界語（例 サチュ、ハルン、コート、NGチューブ）')}${fld('正しく表示された数',stepper('termCorrect',0),'画面表示列どおりになっていれば正解')}</div>
+    <h3>要約の正しさ</h3><div class="formgrid">${fld('要約の文の数',stepper('sentTotal',0))}${fld('事実の誤り',stepper('errFact',0),'時刻・量・人の取り違えなど')}${fld('根拠のない追加',stepper('errAdded',0),'発話にない内容が書かれた')}${fld('抜け落ち',stepper('errMissing',0),'発話にある重要事項が要約にない')}</div>
+    <h3>部分訂正と速さ</h3><div class="formgrid">${fld('部分訂正を試した回数',stepper('editTried',0))}${fld('意図どおり直った回数',stepper('editOk',0))}${fld('AIの処理時間',`<div class="row"><input type="number" id="latencySec" step="0.1" min="0" inputmode="decimal" style="max-width:160px"><span>秒</span></div>`,'録音終了から要約が表示されるまで')}</div>
+    ${fld('見つかった誤りの種類（複数可）',`<div class="seg">${ERR_TYPES.map(t=>`<label class="opt"><input type="checkbox" name="etype" value="${esc(t)}"><span>${esc(t)}</span></label>`).join('')}</div>`)}
+    ${fld('メモ（任意）','<input type="text" id="memo" placeholder="誤りの具体例（利用者名は書かない）">')}`;
+  if(F==='survey'){const ph=defaultPhase();body=`<div class="formgrid">${fld('測定の時期',seg('phase',[['pre','導入前'],['post','実証の終わり']],ph))}${fld('拠点',seg('site',S.settings.sites,S.site||S.settings.sites[0]))}${fld('役割（職員マスターの役割）',seg('role',STAFF_ROLES,'記録担当'))}</div>
+    <h3>申し送りの負担感</h3><p class="sub">1＝まったくそう思わない　5＝とてもそう思う</p><div class="sus">${BURDEN.map((q,i)=>`<div class="q"><span>${i+1}. ${q}</span>${seg('b'+i,[1,2,3,4,5],'','scale')}</div>`).join('')}</div>
+    <div id="susBox" ${ph==='post'?'':'hidden'}><h3>Kebbiの使いやすさ（SUS）</h3><p class="sub">実証の終わりにだけ回答。1＝まったくそう思わない　5＝とてもそう思う</p><div class="sus">${SUS.map((q,i)=>`<div class="q"><span>${i+1}. ${q}</span>${seg('s'+i,[1,2,3,4,5],'','scale')}</div>`).join('')}</div></div>
+    ${fld('ひとこと（任意）','<textarea id="memo" placeholder="良かった点・困った点"></textarea>')}`}
+  return `<div class="card"><h2>計測を入力</h2><p class="sub">どの計測かを選んで入力し、「保存する」を押します。利用者の氏名は入力しません。</p>
+    <div class="formtype">${types.map(([k,l,d])=>`<button type="button" data-form="${k}" aria-pressed="${k===F}">${l}<span>${d}</span></button>`).join('')}</div></div>
+    <form class="card" id="f" novalidate>${body}<div class="row"><button type="submit" class="primary" style="min-width:200px">保存する</button><span class="sub" id="fmsg"></span></div></form>
+    ${recentList(F)}`}
+function recentList(F){const rows=[...S.data[F]].sort((a,b)=>String(b.at).localeCompare(String(a.at))).slice(0,5);if(!rows.length)return '';
+  return `<div class="card"><h3>最近保存した記録</h3><div class="scroll"><table><tbody>${rows.map(r=>`<tr><td>${esc(r.date||'')}</td><td>${esc(r.site||'')}</td><td>${esc(summary(F,r))}</td><td class="n">${delBtn(F,r.id)}</td></tr>`).join('')}</tbody></table></div></div>`}
+function summary(F,r){if(F==='handover')return `${r.phase==='pre'?'導入前':'実証'}・${r.slot||''}・${r.minutes}分・利用者${r.residents}人`;
+  if(F==='receive')return `${r.phase==='pre'?'導入前':'実証'}・${r.role}・${r.findMinutes}分・正答${r.qCorrect}/${r.qTotal}`;
+  if(F==='ai')return `${r.model}・${r.recId||''}・識別${r.idCorrect}/${r.idTotal}・誤り${(+r.errFact||0)+(+r.errAdded||0)+(+r.errMissing||0)}`;
+  if(F==='survey')return `${r.phase==='pre'?'導入前':'実証'}・${r.role}・負担感${f1(mean(r.burden||[]))}${r.sus?'・SUS '+f1(susScore(r.sus)):''}`;
+  if(F==='kebbi')return `${r.fileName}・${(r.perDay||[]).length}日分`;return ''}
+const delBtn=(c,id)=>`<button type="button" class="ghost" data-del="${c}|${id}" style="min-height:40px;padding:6px 12px">削除</button>`;
+function readForm(){const f=$('f');const radio=n=>f.querySelector(`input[name="${n}"]:checked`)?.value??null;const v=id=>num($(id)?.value);const F=S.form;let o,err='';
+  if(F==='handover'){o={phase:radio('phase'),site:radio('site'),date:$('date').value,slot:radio('slot'),method:radio('phase')==='pre'?'従来':'Kebbi',minutes:v('minutes'),residents:v('residents'),staff:v('staff'),reasks:v('reasks'),keyTotal:v('keyTotal'),keyMissed:v('keyMissed'),memo:$('memo').value.trim()};
+    if(!o.minutes)err='所要時間（分）を入れてください';else if(!o.residents)err='対象の利用者数を入れてください';else if(o.keyMissed>o.keyTotal)err='伝わらなかった数が重要事項の数を超えています'}
+  if(F==='receive'){o={phase:radio('phase'),site:radio('site'),date:$('date').value,role:radio('role'),findMinutes:v('findMinutes'),searches:v('searches'),qTotal:v('qTotal'),qCorrect:v('qCorrect')};
+    if(o.findMinutes==null)err='把握までの時間（分）を入れてください';else if(o.qCorrect>o.qTotal)err='正答数が問題数を超えています'}
+  if(F==='ai'){o={date:$('date').value,site:radio('site'),recId:$('recId').value.trim(),model:radio('model'),idTotal:v('idTotal'),idCorrect:v('idCorrect'),tagTP:v('tagTP'),tagFP:v('tagFP'),tagFN:v('tagFN'),sentTotal:v('sentTotal'),errFact:v('errFact'),errAdded:v('errAdded'),errMissing:v('errMissing'),editTried:v('editTried'),editOk:v('editOk'),termTotal:v('termTotal'),termCorrect:v('termCorrect'),latencySec:v('latencySec'),errorTypes:[...f.querySelectorAll('input[name=etype]:checked')].map(i=>i.value),memo:$('memo').value.trim()};
+    if(!o.recId)err='記録IDを入れてください（2モデルの突き合わせに使います）';else if(o.idCorrect>o.idTotal)err='正しく識別できた数が識別すべき数を超えています';else if(o.editOk>o.editTried)err='直った回数が試した回数を超えています';else if(o.termCorrect>o.termTotal)err='正しく表示された用語数が登録用語の数を超えています';else if(!o.sentTotal)err='要約の文の数を入れてください'}
+  if(F==='survey'){const ph=radio('phase');const b=BURDEN.map((_,i)=>num(radio('b'+i)));o={phase:ph,site:radio('site'),role:radio('role'),date:today(),burden:b,memo:$('memo').value.trim()};
+    if(b.some(x=>x==null))err='負担感の4問すべてに答えてください';
+    if(ph==='post'){const s=SUS.map((_,i)=>num(radio('s'+i)));if(s.some(x=>x!=null)){if(s.some(x=>x==null))err=err||'使いやすさの10問すべてに答えてください';else o.sus=s}}}
+  return{o,err}}
+function bindInput(){
+  document.querySelectorAll('[data-form]').forEach(b=>b.onclick=()=>{S.form=b.dataset.form;render()});
+  document.querySelectorAll('[data-step]').forEach(b=>b.onclick=()=>{const i=$(b.dataset.step);const n=(num(i.value)||0)+(+b.dataset.d);i.value=Math.max(+i.min||0,Math.min(+i.max||999,n))});
+  document.querySelectorAll('[data-watch]').forEach(b=>b.onclick=()=>toggleWatch(b.dataset.watch,b));
+  document.querySelectorAll('[data-wreset]').forEach(b=>b.onclick=()=>{const id=b.dataset.wreset;clearInterval(S.watch[id]?.timer);S.watch[id]=null;$(id+'_t').textContent='0:00';const sb=document.querySelector(`[data-watch="${id}"]`);sb.textContent='スタート'});
+  const f=$('f');if(!f)return;
+  f.querySelectorAll('input[name=phase]').forEach(r=>r.onchange=()=>{const sb=$('susBox');if(sb)sb.hidden=r.value!=='post'});
+  f.onsubmit=async e=>{e.preventDefault();const{o,err}=readForm();if(err){$('fmsg').textContent=err;$('fmsg').style.color='var(--bad)';return}
+    const btn=f.querySelector('[type=submit]');btn.disabled=true;const ok=await addRec(S.form,o);btn.disabled=false;
+    if(ok){toast('保存しました');S.watch={};render()}}}
+function toggleWatch(id,btn){const w=S.watch[id];const target=id==='w1'?'minutes':'findMinutes';
+  if(w&&w.timer){clearInterval(w.timer);const sec=(Date.now()-w.start)/1000;S.watch[id]={sec};$(target).value=(Math.round(sec/6)/10).toFixed(1);btn.textContent='スタート';return}
+  const base=w?.sec||0;const start=Date.now()-base*1000;S.watch[id]={start,timer:setInterval(()=>{const s=Math.floor((Date.now()-start)/1000);const el=$(id+'_t');if(el)el.textContent=`${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`},500)};btn.textContent='ストップ'}
+
+/* ---------- 出力・取込 ---------- */
+const CSV_COLS=[['レコードID','id'],['計測種別','_type'],['測定期','_phase'],['拠点','site'],['日付','date'],['時間帯','slot'],['方式','method'],['所要分','minutes'],['対象利用者数','residents'],['参加職員数','staff'],['聞き直し回数','reasks'],['重要事項数','keyTotal'],['伝達漏れ数','keyMissed'],
+  ['受け手役割','role'],['情報把握分','findMinutes'],['職員を探した回数','searches'],['確認問題数','qTotal'],['正答数','qCorrect'],
+  ['モデル','model'],['記録ID','recId'],['識別対象数','idTotal'],['識別正解数','idCorrect'],['タグ正解数','tagTP'],['タグ誤付与数','tagFP'],['タグ漏れ数','tagFN'],['要約文数','sentTotal'],['事実誤り数','errFact'],['根拠なし追加数','errAdded'],['欠落数','errMissing'],['訂正試行数','editTried'],['訂正成功数','editOk'],['登録用語数','termTotal'],['登録用語正解数','termCorrect'],['AI処理秒数','latencySec'],['誤り類型','_etypes'],
+  ...BURDEN.map((_,i)=>['負担感'+(i+1),'_b'+i]),...SUS.map((_,i)=>['SUS'+(i+1),'_s'+i]),['SUSスコア','_sus'],
+  ['日次_申し送り回数','_kn'],['日次_利用者記録数','_krows'],['日次_利用職員数','_kstaff'],['日次_AI要約修正回数','_kcorr'],['日次_自動識別数','_kauto'],['日次_受け取り完了数','_krecv'],['日次_録音確定平均分','_kdur'],
+  ['メモ','memo'],['端末','dev'],['入力日時','at']];
+const TYPE_JA={handover:'申し送り時間',receive:'受け手確認',ai:'AI精度',survey:'職員アンケート',kebbi:'Kebbi利用（日次）'};
+const JA_TYPE=Object.fromEntries(Object.entries(TYPE_JA).map(([k,v])=>[v,k]));
+function flatRows(data){const out=[];
+  for(const c of['handover','receive','ai','survey'])for(const r of data[c]){const o={...r,_type:TYPE_JA[c],_phase:c==='ai'?'実証':r.phase==='pre'?'導入前':'実証',_etypes:(r.errorTypes||[]).join('／')};
+    (r.burden||[]).forEach((v,i)=>o['_b'+i]=v);(r.sus||[]).forEach((v,i)=>o['_s'+i]=v);if(r.sus)o._sus=susScore(r.sus);out.push(o)}
+  for(const p of kebbiDays({kebbi:data.kebbi},true))out.push({id:'K-'+p.site+'-'+p.date,_type:TYPE_JA.kebbi,_phase:'実証',site:p.site,date:p.date,_kn:p.n,_krows:p.rows,_kstaff:p.staff,_kcorr:p.corr,_kauto:p.auto,_krecv:p.recv,_kdur:p.durN?+(p.durSum/p.durN).toFixed(2):''});
+  return out}
+function toCSV(rows){return Papa.unparse({fields:CSV_COLS.map(c=>c[0]),data:rows.map(r=>CSV_COLS.map(([,k])=>r[k]??''))})}
+async function saveFile(name,text){if(!dl){const blob=new Blob(['\uFEFF'+text],{type:'text/csv'});
+    try{const file=new File([blob],name,{type:'text/csv'});if(/iPhone|iPad|Android/i.test(navigator.userAgent)&&navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:name});markExported();toast('送りました');render();return}}catch(e){if(e&&e.name==='AbortError')return}
+    try{const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500);markExported();toast('保存しました');render()}catch(e){copyText(text,'保存できなかったため、CSVをコピーしました')}return}
+  try{await dl.save({filename:name,data:'﻿'+text});toast('保存しました')}catch(e){if(e.code==='declined')return;copyText(text,'保存できなかったため、CSVをコピーしました')}}
+function renderData(){const sample=false;const data=current();const rows=flatRows(data);const counts=COLS.map(c=>[c,S.data[c].length]);
+  return `${sample?'<div class="banner sample"><b>記録がまだありません</b><span>出力すると例のデータが書き出されます（ファイル名に「例」と付きます）。</span></div>':''}
+  <div class="card"><h2>測定データを出力する</h2>
+   <p class="sub">このアカウントの全記録を「計測CSV」1つにまとめて保存します。保存したCSVを端末の共有機能でデータ担当に渡してください。データ担当は受け取ったCSVを下の「データを取り込む」で自分の端末にまとめます。Excelで開けるほか、<b>Kebbi Care Shift データ管理画面</b>に入れると導入前の実測値がベースライン比較に自動で入ります。</p><p class="sub">この端末：<b>${esc(devLabel())}</b>　最後に保存：${S.settings.lastExport?esc(new Date(S.settings.lastExport).toLocaleString('ja-JP')):'まだ'}</p>
+   <div class="row"><button type="button" class="primary" id="exCsv">計測CSVを保存（${rows.length}行）</button><button type="button" id="cpCsv">計測CSVをコピー</button><button type="button" id="cpSum">提案書用の結果まとめをコピー</button><a class="btn" href="datamgmt.html" style="display:inline-flex;align-items:center;text-decoration:none">データ管理画面で見る</a></div>
+   <textarea id="copyBox" hidden aria-label="コピー用テキスト" style="min-height:140px;font-size:.85rem"></textarea></div>
+  <div class="card"><h2>データを取り込む</h2>
+   <p class="sub">次の2種類を受け付けます。列名から種類を自動で判定します（UTF-8／Shift_JIS）。</p>
+   <dl class="dl"><dt>Kebbiの申し送りCSV</dt><dd>データ管理画面と同じ列（申し送りID・拠点・録音開始・確定日時・申し送り者ID・利用者ID・項目・要約 ほか）。<b>要約文は保存せず、重複を除くためのレコード情報を保持し</b>、日ごとの回数・修正率・識別率などの集計だけを保存します。</dd>
+   <dt>計測CSV</dt><dd>各端末から送られてきたファイル。何度取り込んでも、同じ記録は二重に入りません（レコードIDで判定）。</dd></dl>
+   <label class="btn primary" for="imp" style="display:inline-flex;align-items:center;width:fit-content">CSVファイルを選ぶ<input type="file" id="imp" accept=".csv,.txt,text/csv" multiple hidden></label>
+   <p class="sub" id="impMsg">${esc(S.impMsg||'')}</p></div>
+  <div class="card"><h2>保存されている記録</h2>
+   <div class="scroll"><table><thead><tr><th>種類</th><th class="n">件数</th></tr></thead><tbody>${counts.map(([c,n])=>`<tr><td>${TYPE_JA[c]}</td><td class="n">${n}</td></tr>`).join('')}</tbody></table></div>
+   ${COLS.map(c=>S.data[c].length?`<details><summary style="cursor:pointer;font-weight:700;padding:8px 0">${TYPE_JA[c]}の一覧（削除はここから）</summary><div class="scroll"><table><tbody>${[...S.data[c]].sort((a,b)=>String(b.at).localeCompare(String(a.at))).map(r=>`<tr><td>${esc(r.date||String(r.importedAt||'').slice(0,10))}</td><td>${esc(r.site||'')}</td><td>${esc(summary(c,r))}</td><td class="n">${delBtn(c,r.id)}</td></tr>`).join('')}</tbody></table></div></details>`:'').join('')}
+  </div>`}
+function reportText(){const c=compute(current());const st=S.settings;const p=c.pre,q=c.post,I=c.impact,k=c.kebbi,a0=c.ai[MODELS[0]],a1=c.ai[MODELS[1]];const L=[];
+  L.push(`【Kebbi Care Shift OS 実証結果まとめ】${isEmpty()?'※実測データなし':''}${S.site?'（'+S.site+'）':'（全拠点）'}`);
+  L.push(`期間：導入前 ${st.preStart}〜${st.preEnd}／実証 ${st.postStart}〜${st.postEnd}`);
+  L.push('','■ 業務の再設計・導入効果');
+  L.push(`・申し送り1回の所要時間（中央値）：${f1(p.min)}分 → ${f1(q.min)}分（${fp(I.rate)}短縮、n=${p.nHo}/${q.nHo}）`);
+  L.push(`・利用者1人あたり：${f0(p.perRes)}秒 → ${f0(q.perRes)}秒`);
+  L.push(`・聞き直し回数（平均）：${f1(p.reasks)}回 → ${f1(q.reasks)}回`);
+  L.push(`・重要事項の伝達漏れ率：${fp(p.leak)} → ${fp(q.leak)}（対象 ${p.keyN}件／${q.keyN}件）`);
+  L.push(`・後続職員の情報把握時間（中央値）：${f1(p.find)}分 → ${f1(q.find)}分（n=${p.nRc}/${q.nRc}）`);
+  L.push(`・引継ぎ把握率：${fp(p.grasp)} → ${fp(q.grasp)}（出題 ${p.qN}問／${q.qN}問）`);
+  L.push(`　うち外国人職員：${fp(p.graspF)} → ${fp(q.graspF)}（n=${p.nF}/${q.nF}）`);
+  L.push(`・負担感（1〜5）：${f1(p.burden)} → ${f1(q.burden)}（回答 ${p.nSv}人／${q.nSv}人）`);
+  L.push(`・継続利用：実証${k.totalDays}日中${k.usedDays}日利用、1拠点1日平均${f1(k.perDay)}回、AI要約の職員修正率${fp(k.corrRate)}`);
+  L.push('','■ 効果の換算（計算式）');
+  L.push(`(${f1(p.min)}−${f1(q.min)})分×${I.perDay??'未設定'}回/日${I.rpd?` ＋ (${f1(p.find)}−${f1(q.find)})分×${I.rpd}回/日`:''} ＝ ${f1(I.daily)}分/日/拠点`);
+  L.push(`→ ×365日÷60 ＝ ${f0(I.yearSite)}時間/年/拠点 → ×${I.siteN}拠点 ＝ ${f0(I.yearAll)}時間/年${I.cost!=null?`（人件費 ${f0(I.cost)}円）`:''}${I.fte!=null?`（${f1(I.fte)}人分）`:''}`);
+  L.push('','■ 技術の優位性・国産基盤モデルへのフィードバック（国産 vs 比較）');
+  L.push(`・評価記録数：${a0.n}件 / ${a1.n}件`);
+  L.push(`・利用者識別正解率：${fp(a0.idAcc)} / ${fp(a1.idAcc)}`);
+  L.push(`・登録用語の正しい表記率：${fp(a0.termAcc)} / ${fp(a1.termAcc)}`);
+  L.push(`・7項目分類F1：${fp(a0.f1)} / ${fp(a1.f1)}（適合率 ${fp(a0.precision)}/${fp(a1.precision)}、再現率 ${fp(a0.recall)}/${fp(a1.recall)}）`);
+  L.push(`・要約の誤り率：${fp(a0.errRate)} / ${fp(a1.errRate)}（うち根拠のない追加 ${fp(a0.addRate)} / ${fp(a1.addRate)}）`);
+  L.push(`・部分訂正成功率：${fp(a0.editRate)} / ${fp(a1.editRate)}`);
+  L.push(`・処理時間 中央値：${f1(a0.lat)}秒 / ${f1(a1.lat)}秒（90%点 ${f1(a0.lat90)} / ${f1(a1.lat90)}秒）`);
+  L.push(`・SUS：${f1(q.sus)}（${q.nSus}人）`);
+  const t=ERR_TYPES.map(x=>[x,a0.types[x]||0,a1.types[x]||0]).filter(r=>r[1]||r[2]);if(t.length)L.push('・誤りの種類（国産/比較）：'+t.map(r=>`${r[0]} ${r[1]}/${r[2]}`).join('、'));
+  L.push('','※時間は中央値。対照群のない前後比較のため、季節・人員・新奇性の影響を含みうる。');
+  return L.join('\n')}
+async function readFileText(f){const buf=await f.arrayBuffer();try{return new TextDecoder('utf-8',{fatal:true}).decode(buf)}catch(e){return new TextDecoder('shift_jis').decode(buf)}}
+const parseDT=v=>{const m=String(v||'').trim().match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})(?:[ T](\d{1,2}):(\d{2}))?/);return m?new Date(+m[1],+m[2]-1,+m[3],+(m[4]||0),+(m[5]||0)):null};
+const ymd=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+async function importFiles(files){const res=[];S.impMsg='取り込み中…';render();
+  for(const f of files){const text=(await readFileText(f)).replace(/^﻿/,'');const r=Papa.parse(text,{header:true,skipEmptyLines:'greedy',transformHeader:h=>h.trim()});const fields=r.meta.fields||[];
+    if(['計測種別','測定期','拠点'].every(c=>fields.includes(c))){res.push(await importMeasure(r.data,f.name));continue}
+    if(['申し送りID','拠点','録音開始','確定日時','利用者ID'].every(c=>fields.includes(c))){res.push(await importKebbi(r.data,f.name));continue}
+    res.push(`${f.name}：種類を判定できませんでした（健康チェック・看護師申し送り・マスタはデータ管理画面で取り込みます）`)}
+  S.impMsg=res.join('　');render();toast('取り込みが終わりました')}
+async function importKebbi(rows,name){const ho=new Map();const staffAll=new Set();
+  for(const r of rows){const id=r['申し送りID']?r['拠点']+'|'+r['申し送りID']:'';if(!id)continue;if(!ho.has(id))ho.set(id,{site:r['拠点'],start:parseDT(r['録音開始']),fix:parseDT(r['確定日時']),by:r['申し送り者ID'],recv:parseDT(r['受け取り日時']),rows:[]});ho.get(id).rows.push(r);if(r['申し送り者ID'])staffAll.add(r['申し送り者ID'])}
+  const day=new Map();for(const h of ho.values()){if(!h.start)continue;const key=h.site+'|'+ymd(h.start);if(!day.has(key))day.set(key,{site:h.site,date:ymd(h.start),n:0,rows:0,staffSet:new Set(),corr:0,auto:0,recv:0,durSum:0,durN:0,leadSum:0,leadN:0,unid:0});
+    const d=day.get(key);d.n++;d.rows+=h.rows.length;if(h.by)d.staffSet.add(h.by);if(h.rows.some(x=>x['AI要約修正']==='修正あり'))d.corr++;
+    h.rows.forEach(x=>{if(x['利用者識別']==='AI自動')d.auto++;if(x['利用者識別']==='未識別'||!x['利用者ID'])d.unid++});
+    if(h.recv){d.recv++;if(h.fix){d.leadSum+=(h.recv-h.fix)/6e4;d.leadN++}}if(h.fix){d.durSum+=(h.fix-h.start)/6e4;d.durN++}}
+  const perDay=[...day.values()].map(({staffSet,...d})=>({...d,staff:staffSet.size,durSum:+d.durSum.toFixed(2),leadSum:+d.leadSum.toFixed(2)}));
+  const sites=new Set(perDay.map(p=>p.site));const unknown=[...sites].filter(s=>!S.settings.sites.includes(s));
+  const ok=await addRec('kebbi',{fileName:name,importedAt:new Date().toISOString(),rows:rows.length,staffTotal:staffAll.size,perDay});
+  return ok?`${name}：申し送り ${ho.size}回・${perDay.length}日分の集計を保存${unknown.length?`（設定にない拠点名：${unknown.join('、')}。設定の拠点名と揃えてください）`:''}`:`${name}：保存できませんでした`}
+async function importMeasure(rows,name){const have=new Set(COLS.flatMap(c=>S.data[c].map(r=>r.id)));let n=0,skip=0;const map=Object.fromEntries(CSV_COLS.map(([j,k])=>[j,k]));
+  let ex=0;for(const r of rows){const type=JA_TYPE[r['計測種別']];if(!type||type==='kebbi'){continue}if(/^EX\d+$/.test(String(r['レコードID']||''))){ex++;continue}const id=String(r['レコードID']||'').replace(/[^A-Za-z0-9_\-.~:@+]/g,'')||null;if(id&&have.has(id)){skip++;continue}
+    const o={};for(const[j,k]of Object.entries(map)){if(k.startsWith('_')||k==='id')continue;const v=r[j];if(v==null||v==='')continue;o[k]=['site','date','slot','method','role','model','recId','memo','dev','at'].includes(k)?v:num(v)}
+    if(type!=='ai')o.phase=r['測定期']==='導入前'?'pre':'post';
+    if(type==='ai')o.errorTypes=String(r['誤り類型']||'').split('／').filter(Boolean);
+    if(type==='survey'){o.burden=BURDEN.map((_,i)=>num(r['負担感'+(i+1)]));const s=SUS.map((_,i)=>num(r['SUS'+(i+1)]));if(s.every(x=>x!=null))o.sus=s}
+    if(await addRec(type,o,id||undefined,true))n++}
+  return `${name}：${n}件を追加${skip?`、${skip}件は登録済みのため省略`:''}${ex?`、例のデータ${ex}件は取り込みませんでした`:''}`}
+function bindData(){const ex=$('exCsv');if(!ex)return;const name=()=>`Kebbi計測CSV_${isEmpty()?'例_':''}${devLabel().replace(/[^0-9A-Za-z\u3040-\u30ff\u4e00-\u9fff_-]/g,'')}_${today().replace(/-/g,'')}.csv`;
+  ex.onclick=()=>saveFile(name(),toCSV(flatRows(current())));
+  $('cpCsv').onclick=()=>copyText(toCSV(flatRows(current())),'計測CSVをコピーしました');
+  $('cpSum').onclick=()=>copyText(reportText(),'結果まとめをコピーしました');
+  $('imp').onchange=e=>{if(e.target.files.length)importFiles([...e.target.files]);e.target.value=''}}
+
+/* ---------- 手順・対応表・設定 ---------- */
+function renderGuide(){const st=S.settings;return `<div class="card"><h2>測定手順</h2><p class="sub">導入前と実証で<b>同じ定義・同じ時間帯・同じ測り方</b>にすることが、数値の信頼性を決めます。</p>
+ <ol class="steps">
+  <li><span class="when">準備<br>〜${st.preStart.slice(5).replace('-','/')}</span><b>役割と道具をそろえる</b><div>
+   <ul><li>各拠点に<b>計測係</b>（申し送りに参加しない人が望ましい）と<b>リーダー</b>（重要事項の数え上げと確認問題の作成）を決める。リーダーは職員マスターの「確定担当」から選ぶ。</li>
+   <li>利用者マスターの<b>利用者IDを採番</b>する（マスタ登録シートでは架空例以外のIDが空欄）。IDがないとKebbiの記録と計測を突き合わせられない。</li>
+   <li>職員・利用者（家族）への説明と同意を済ませ、「PoC同意書」の同意確認台帳で利用者IDごとに照合する（管理者：梅田執行役員）。録音は申し送りの時間だけ。</li>
+   <li>同姓の利用者（例：岩瀬様が2名）や聞き違えやすい用語（コート、NG、BS、RR、W/C など）は、「呼称・用語登録」どおりにKebbiへ登録されているか開発側と確認する。</li>
+   <li>「設定」で拠点名をKebbiの拠点名と<b>一字一句同じ</b>にし、端末の名前を入れる。全端末で同じ拠点名にする。</li>
+   <li>職員アンケート（導入前）を全員に回答してもらう。</li></ul></div></li>
+  <li><span class="when">導入前<br>${st.preStart.slice(5).replace('-','/')}〜${st.preEnd.slice(5).replace('-','/')}</span><b>従来の申し送りを測る（各拠点 10回以上）</b><div>
+   <ul><li><b>申し送りの時間</b>：開始の声かけでスタート、受け手の「了解」でストップ。利用者数・参加職員数・聞き直し回数を数える。</li>
+   <li><b>伝達漏れ</b>：リーダーが当日の介護記録から「伝えるべき重要事項」（転倒、発熱、食事量の大きな変化、服薬変更など）を数え、申し送りに出なかった件数を記録。</li>
+   <li><b>後から来た職員</b>：遅出スタッフ、ヘルプ看護師（ほたる看護）、外国人職員が情報を集め始めてから「把握できた」まで測る。外国人職員は入力・確定の権限がなく、受け手として確認する役割なので、<b>必ず計測対象に含める</b>（応募書の「日本語の習熟度にかかわらず」を示す根拠になる）。探した回数を数え、直後にリーダーが3問出題して正答数を記録（各拠点 10回以上）。</li></ul></div></li>
+  <li><span class="when">実証<br>${st.postStart.slice(5).replace('-','/')}〜${st.postEnd.slice(5).replace('-','/')}</span><b>Kebbiでの申し送りを同じ方法で測る</b><div>
+   <ul><li>上と同じ3つの計測を、同じ時間帯（朝7時・夜20時）で続ける。最初の数日は慣れの影響が出るので、<b>週ごとに</b>結果を見る。</li>
+   <li>各端末は<b>毎日</b>計測CSVをデータ担当へ送る。データ担当はそれとKebbiの申し送りCSV（<b>毎週</b>）を取り込む（継続利用の証拠になる）。</li>
+   <li><b>AIの精度チェック</b>：毎日1〜2件の申し送りを選び、開発側が同じ書き起こしを東大モデルとgpt-oss-120bの両方で処理。評価担当は<b>どちらのモデルか伏せた状態</b>で、元の発話と見比べて採点（各モデル 30件以上）。</li>
+   <li>誤りは「音声認識の誤り」と「モデルの誤り」を分けて記録する。音声認識の誤りをモデルの責任にしない。</li>
+   <li>発話に「呼称・用語登録」の略語・単位・業界語が出たら、その数と正しく表示された数を記録する（医療追加学習の効果を見る指標）。</li></ul></div></li>
+  <li><span class="when">実証の終わり<br>〜11/21</span><b>事後アンケート</b><div><ul><li>負担感4問（導入前と同じ）と使いやすさ10問（SUS）を、実証に参加した全員に回答してもらう。</li></ul></div></li>
+  <li><span class="when">集計<br>11/24〜11/27</span><b>結果を確認して提案書へ</b><div><ul><li>「結果を見る」で拠点別・全体を確認。件数が足りない指標（黄色の「不足」）は、参考値として扱う。</li>
+   <li>「提案書用の結果まとめをコピー」で数値と計算式を貼り付け、「計測CSV」を根拠資料として保存。</li>
+   <li>提案書・デモ動画（3分以内）の提出期限は <b>11月30日（月）昼12時</b>。</li></ul></div></li>
+ </ol></div>
+ <div class="card"><h2>アプリの準備とデータの集め方</h2><ul style="margin:0;padding-left:1.2em">
+  <li><b>ホーム画面に追加</b>：iPhoneはSafariで開き「共有」→「ホーム画面に追加」。AndroidはChromeのメニュー→「アプリをインストール」または「ホーム画面に追加」。一度開けば電波がなくても使えます。</li>
+  <li>最初に「設定」で<b>この端末の名前</b>（例 ゆるり鶴舞-タブレット1）を入れる。</li>
+  <li>記録は<b>その端末の中だけ</b>に保存されます。1日の終わりに「計測CSVを保存」でデータ担当へ送る。</li>
+  <li>データ担当は届いたCSVを自分の端末の「データを取り込む」で全部取り込む。何度入れても二重にはならない。全体の結果はデータ担当の端末で見る。</li>
+  <li>ブラウザの履歴・サイトデータを消すと記録も消えます。消す前に必ずCSVを送ってください。</li></ul></div>
+ <div class="card"><h2>数値の読み方で気をつけること</h2><ul style="margin:0;padding-left:1.2em">
+  <li>対照群のない前後比較です。人員配置・利用者の状態・新しい機器への関心（物珍しさ）の影響を含みます。差を「Kebbiだけの効果」と言い切らず、拠点別・週別の傾向とあわせて示してください。</li>
+  <li>時間は中央値で比べます。1回だけ極端に長い申し送りがあっても結果がぶれにくくなります。</li>
+  <li>応募時の「必須項目の欠損率」は、10/17のUI運用仕様で「7項目の全項目入力・異常なしの穴埋めは求めない」としたため、そのままでは測れません。本画面では<b>重要事項の伝達漏れ率</b>に置き換えています。提案書でも定義の変更を明記してください。</li>
+  <li>測定記録はIDと件数を中心に扱います。提供マスタは登録情報で確認できます。自由記述には氏名を記入しないでください。</li></ul></div>`}
+function renderCriteria(){const R=[
+  ['課題設定の妥当性','人手不足解消や生産性向上に寄与し、当該分野の課題の解決に資するか','導入前の申し送り時間・情報把握時間・伝達漏れ率（＝現状の負担の大きさ）','申し送りの時間／後から来た職員の確認（導入前）'],
+  ['業務の再設計・導入効果','業務プロセス改革が効果的かつ継続的に実施できているか／継続的な改善の体制','所要時間・利用者1人あたり時間・聞き直し・伝達漏れ率・把握率・負担感の前後比較、Kebbiの利用日数と回数、AI要約の修正率','全入力＋Kebbi CSV取込'],
+  ['ユースケースの波及効果','コスト対効果、業界全体へのインパクト、横展開','年間削減時間・人件費・人数換算（計算式つき）、拠点別の再現性','結果を見る（拠点切替）／設定'],
+  ['技術の優位性','回答精度・速度・安定度・ユーザビリティ、フィードバック反映の仕組み、複数モデルの多段階評価','利用者識別正解率、7項目分類F1、要約誤り率、部分訂正成功率、処理時間（中央値・90%点）、SUS、2モデル比較','AIの精度チェック／職員アンケート'],
+  ['国産基盤モデル開発への貢献','国産基盤モデルの利活用推進に有益なフィードバック','東大モデルとgpt-oss-120bの同一入力比較、誤りの種類別件数（医療追加学習の効果と限界）','AIの精度チェック（誤りの種類）']];
+ return `<div class="card"><h2>審査基準との対応</h2><p class="sub">審査基準の文言はNEDO「GENIAC-PRIZE 2026 懸賞広告（テーマ1）」の審査基準から要約しています。</p>
+  <div class="scroll"><table><thead><tr><th>審査項目</th><th>審査で見られる点</th><th>この画面で示すKPI</th><th>入力する場所</th></tr></thead><tbody>${R.map(r=>`<tr>${r.map((c,i)=>`<td>${i===0?'<b>'+c+'</b>':c}</td>`).join('')}</tr>`).join('')}</tbody></table></div></div>
+  <div class="card"><h2>提出物との関係</h2><dl class="dl"><dt>提案書</dt><dd>「4) 実証結果」に結果まとめ（数値と計算式）を、「3) AIシステムの開発」に国産モデルの採用理由と比較結果を記載。</dd><dt>デモ動画</dt><dd>3分以内。Kebbiでの記録→確認→後続職員の確認の流れと、この画面の結果を短く映す。</dd><dt>根拠資料</dt><dd>計測CSV（この画面から出力）とKebbiの申し送りCSV。</dd></dl></div>`}
+function renderSettings(){const st=S.settings;return `<form class="card" id="sf" novalidate><h2>設定</h2><p class="sub">設定はログイン中のアカウントに保存されます。拠点名と期間はデータ担当の端末と同じにしてください。</p>
+  <div class="formgrid">
+   ${fld('この端末の名前',`<input type="text" id="sDev" value="${esc(S.settings.device||'')}" placeholder="例 ゆるり鶴舞-タブレット1">`,`CSVのファイル名と「端末」列に入ります。端末コード：${esc(S.settings.devCode||'')}`)}
+   ${fld('拠点名（1行に1つ）',`<textarea id="sSites">${esc(st.sites.join('\n'))}</textarea>`,'KebbiのCSVの「拠点」列と同じ表記にしてください。マスタ登録シートでは「ゆるり・あ」と「ゆるり・あ鶴舞」が混在しています')}
+   ${fld('申し送り対象の利用者数（入力欄の初期値）',`<input type="number" id="sRes" min="0" step="1" value="${st.residentsDefault??''}">`,'マスタ登録シートでは ゆるり・あ の利用者20名')}
+   ${fld('1拠点1日の申し送り回数',`<input type="number" id="sPer" min="0" step="1" value="${st.perDay??''}">`,'応募時の計画：7時・20時の2回')}
+   ${fld('1拠点1日の「後から来た職員」の確認回数',`<input type="number" id="sRpd" min="0" step="1" value="${st.receiversPerDay??''}" placeholder="未設定">`,'遅出職員・ヘルプ看護師の人数。未設定なら換算に含めません')}
+   ${fld('職員の時給（円）',`<input type="number" id="sWage" min="0" step="10" value="${st.wage??''}" placeholder="未設定">`,'人件費換算に使用。ジェネラスの実数を入力')}
+   ${fld('職員1人の年間労働時間',`<input type="number" id="sAh" min="0" step="10" value="${st.annualHours??''}" placeholder="未設定">`,'人数換算に使用')}
+   ${fld('導入前の測定期間',`<div class="row"><input type="date" id="sPs" value="${st.preStart}" style="max-width:190px"><span>〜</span><input type="date" id="sPe" value="${st.preEnd}" style="max-width:190px"></div>`)}
+   ${fld('実証期間',`<div class="row"><input type="date" id="sQs" value="${st.postStart}" style="max-width:190px"><span>〜</span><input type="date" id="sQe" value="${st.postEnd}" style="max-width:190px"></div>`,'応募時の計画：10/31〜11/20')}
+  </div><div class="row"><button type="submit" class="primary">設定を保存</button></div></form>`}
+function bindSettings(){const f=$('sf');if(!f)return;f.onsubmit=e=>{e.preventDefault();const sites=$('sSites').value.split(/\n|,|、/).map(s=>s.trim()).filter(Boolean);if(!sites.length){toast('拠点名を1つ以上入れてください');return}
+  saveSettings({device:$('sDev').value.trim(),sites,residentsDefault:num($('sRes').value),perDay:num($('sPer').value),receiversPerDay:num($('sRpd').value),wage:num($('sWage').value),annualHours:num($('sAh').value),preStart:$('sPs').value,preEnd:$('sPe').value,postStart:$('sQs').value,postEnd:$('sQe').value})}}
+
+/* ---------- 画面切替 ---------- */
+function renderHeadOnly(){$('storeState').textContent=S.mode==='local'?`端末：${devLabel()}｜アカウントに保存（上部の保存状態を確認）`:'読み込み中…'}
+function render(){renderHeadOnly();const m=$('main');const t=S.tab;
+  document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===t));
+  const un=S.mode==='local'?unexported():0;const localNote=un&&t!=='settings'?`<div class="banner local"><b>まだCSV保存していない記録が ${un} 件あります</b><span>上部の保存状態を確認してください。必要に応じてCSVを保存するか「職員間のデータ共有」で共有できます。</span>${t!=='data'?'<button type="button" class="ghost" data-go="data" style="min-height:40px;padding:6px 14px">CSV出力へ</button>':''}</div>`:'';
+  m.innerHTML=localNote+(t==='results'?renderResults():t==='input'?renderInput():t==='data'?renderData():t==='guide'?renderGuide():t==='criteria'?renderCriteria():renderSettings());
+  m.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{S.tab=b.dataset.go;render();window.scrollTo(0,0)});
+  const ss=$('siteSel');if(ss)ss.onchange=()=>{S.site=ss.value;render()};
+  if(t==='input')bindInput();if(t==='data')bindData();if(t==='settings')bindSettings();
+  m.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{if(b.dataset.armed){const[c,id]=b.dataset.del.split('|');delRec(c,id)}else{b.dataset.armed='1';b.textContent='本当に削除';b.classList.add('danger');setTimeout(()=>{if(b.isConnected){delete b.dataset.armed;b.textContent='削除';b.classList.remove('danger')}},4000)}})}
+document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{S.tab=b.dataset.tab;Object.values(S.watch).forEach(w=>w?.timer&&clearInterval(w.timer));S.watch={};render();window.scrollTo(0,0)});
+const h=(location.hash||'').slice(1);if(['results','input','data','guide','criteria','settings'].includes(h))S.tab=h;
+/* v2: preserve source KPI definitions, harden storage and exchange. */
+const K=window.Kebbi;
+const dailyCols=[['日次_録音確定分合計','_kdurSum'],['日次_録音確定件数','_kdurN'],['日次_確定受取分合計','_kleadSum'],['日次_確定受取件数','_kleadN'],['日次_未識別数','_kunid']];
+CSV_COLS.push(...dailyCols,['計測者参照','observerRef'],['計測者ID','observerId'],['更新日時','updatedAt'],['原データJSON','_rawJSON']);
+let draft=null;try{draft=K.read('kebbi-draft-v2',null)}catch{}
+let deletedIds=[];let audit=[];let saveError=false;
+const originalLoad=loadLocal;
+loadLocal=function(){try{const j=K.read(LS,null);if(j){if(!j.data||COLS.some(c=>!Array.isArray(j.data[c])))throw Error('保存形式が不正');originalLoad();deletedIds=j.deletedIds||[];audit=j.audit||[]}}catch(e){saveError=true;alert('保存データを読み込めません。上書きを止めました。バックアップから復元してください。')}};
+saveLocal=function(){if(saveError)return false;const ok=K.write(LS,{schemaVersion:2,data:S.data,settings:S.settings,deletedIds,audit});if(ok)publishExport();return ok};
+publishExport=function(){try{localStorage.setItem('kebbi-kpi-export-v1',JSON.stringify({schemaVersion:2,at:K.stamp(),device:devLabel(),deviceCode:S.settings.devCode,csv:toCSV(flatRows(S.data)),deletedIds,masterVersion:K.M.version}))}catch(e){toast('管理画面への共有に失敗しました。CSVで取り込んでください')}};
+addRec=async function(col,obj,id,keepAt){if(saveError){toast('保存データの読み込みエラーを解決してください');return false}const before=structuredClone(S.data);obj={...obj,id:id||`${S.settings.devCode}-${K.uuid()}`,at:keepAt&&obj.at?obj.at:K.stamp(),dev:obj.dev||devLabel(),updatedAt:keepAt&&obj.updatedAt?obj.updatedAt:K.stamp()};
+  const i=S.data[col].findIndex(r=>r.id===obj.id);if(i>=0)S.data[col][i]=obj;else S.data[col].push(obj);if(!saveLocal()){S.data=before;return false}scheduleRender(true);return true};
+delRec=async function(col,id){const before=structuredClone(S.data);const old=S.data[col].find(r=>r.id===id);S.data[col]=S.data[col].filter(r=>r.id!==id);deletedIds.push(id);audit.push({action:'delete',at:K.stamp(),type:col,record:old});if(!saveLocal()){S.data=before;deletedIds.pop();audit.pop();return}render()};
+const oldFlat=flatRows;
+flatRows=function(data){const rows=oldFlat(data);for(const r of rows){if(r._type===TYPE_JA.kebbi){const p=kebbiDays({kebbi:data.kebbi},true).find(p=>p.site===r.site&&p.date===r.date);if(p){Object.assign(r,{_kdurSum:p.durSum,_kdurN:p.durN,_kleadSum:p.leadSum,_kleadN:p.leadN,_kunid:p.unid,_rawJSON:JSON.stringify(p)})}}else{const c=JA_TYPE[r._type],original=data[c].find(o=>o.id===r.id);r._rawJSON=JSON.stringify(original)}}return rows};
+toCSV=function(rows){return K.csv(rows.map(r=>Object.fromEntries(CSV_COLS.map(([j,k])=>[j,r[k]??'']))),CSV_COLS.map(c=>c[0]))};
+saveFile=async function(name,text){K.download(name,text);if(name.endsWith('.csv')){markExported();render()}toast('ファイルの保存を開始しました')};
+const oldReadForm=readForm;
+readForm=function(){const out=oldReadForm();if(!out.o)return out;out.o.observerRef=$('observer')?.value||'';out.o.observerId=K.official('staff',K.M.staff.find(r=>r._ref===out.o.observerRef)||{});out.o.updatedAt=K.stamp();const tmp=Object.fromEntries(COLS.map(c=>[c,[]]));tmp[S.form]=[{...out.o,id:'validation',at:K.stamp()}];const row=flatRows(tmp)[0];const jr=Object.fromEntries(CSV_COLS.map(([j,k])=>[j,row[k]??'']));const errors=K.validateMeasure(jr);if(errors.length)out.err=errors.join('、');return out};
+const oldRenderInput=renderInput;
+renderInput=function(){return oldRenderInput().replace('<form class="card" id="f" novalidate>','<form class="card" id="f" novalidate><div class="field"><label for="observer" class="lab">計測者（任意）</label><select id="observer"><option value="">未選択・匿名アンケート</option>'+K.M.staff.map(r=>`<option value="${esc(r._ref)}">${esc(r['表示名'])}／${esc(r['所属拠点'])}／${esc(r['役割（権限シートから選択）'])}</option>`).join('')+'</select><p class="draft-note">職員マスターの登録者を表示。選択は本人認証ではありません。入力内容はログイン中のアカウントに下書き保存します。</p></div>').replace('<div class="row"><button type="submit"','<div class="row save-fixed"><button type="submit"')};
+function captureDraft(){const f=$('f');if(!f)return;const fields={};f.querySelectorAll('input,textarea,select').forEach((el,i)=>fields[el.id||`${el.name}:${el.value}`]={value:el.value,checked:el.checked});const watches=Object.fromEntries(Object.entries(S.watch).map(([id,w])=>[id,w?{start:w.start,sec:w.sec,running:!!w.timer}:null]));draft={form:S.form,fields,watches};try{localStorage.setItem('kebbi-draft-v2',JSON.stringify(draft))}catch{}}
+const oldBind=bindInput;
+bindInput=function(){oldBind();const f=$('f');if(!f)return;if(draft?.form===S.form){f.querySelectorAll('input,textarea,select').forEach(el=>{const x=draft.fields[el.id||`${el.name}:${el.value}`];if(x){if(el.type==='radio'||el.type==='checkbox')el.checked=x.checked;else el.value=x.value}});const ph=f.querySelector('[name=phase]:checked')?.value;if($('susBox'))$('susBox').hidden=ph!=='post'}
+  f.addEventListener('input',captureDraft);f.addEventListener('change',captureDraft);const oldSubmit=f.onsubmit;f.onsubmit=async e=>{const check=readForm();if(check.err){e.preventDefault();$('fmsg').textContent=check.err;$('fmsg').setAttribute('role','alert');$('fmsg').scrollIntoView({block:'center'});return}const count=S.data[S.form].length;const runningTimers=Object.values(S.watch).map(w=>w?.timer).filter(Boolean);await oldSubmit(e);if(S.data[S.form].length>count){runningTimers.forEach(clearInterval);draft=null;localStorage.removeItem('kebbi-draft-v2');Object.values(S.watch).forEach(w=>w?.timer&&clearInterval(w.timer));S.watch={};render()}};
+  document.querySelectorAll('[data-form]').forEach(b=>b.onclick=()=>{captureDraft();S.form=b.dataset.form;render()});
+  if(draft?.form===S.form)for(const [id,w]of Object.entries(draft.watches||{})){if(w?.running&&$(id+'_t')){S.watch[id]={sec:(Date.now()-w.start)/1000};toggleWatch(id,document.querySelector(`[data-watch="${id}"]`))}}
+  document.querySelectorAll('[data-step]').forEach(b=>{const click=b.onclick;b.onclick=e=>{click(e);captureDraft()}});
+  document.querySelectorAll('[data-wreset]').forEach(b=>{const click=b.onclick;b.onclick=e=>{click(e);const target=b.dataset.wreset==='w1'?'minutes':'findMinutes';$(target).value='';captureDraft()}});
+};
+toggleWatch=function(id,btn){const w=S.watch[id],target=id==='w1'?'minutes':'findMinutes';if(w?.timer){clearInterval(w.timer);const sec=(Date.now()-w.start)/1000;S.watch[id]={sec};$(target).value=Math.max(.01,sec/60).toFixed(2);btn.textContent='再開';captureDraft();return}const start=Date.now()-(w?.sec||0)*1000;clearInterval(w?.timer);S.watch[id]={start,timer:setInterval(()=>{const el=$(id+'_t');if(el){const sec=Math.floor((Date.now()-start)/1000);el.textContent=`${Math.floor(sec/60)}:${String(sec%60).padStart(2,'0')}`}},500)};btn.textContent='ストップ';captureDraft()};
+window.addEventListener('beforeunload',()=>{if(S.tab==='input')captureDraft()});
+const oldRenderData=renderData;
+renderData=function(){return oldRenderData()+`<div class="card"><h2>レポートとバックアップ</h2><p>レポートは印刷・PDF保存ができるHTML形式です。バックアップには全測定値・設定・ID対応表を保存します。</p><div class="row"><button id="reportDownload" class="primary">測定レポートを保存</button><button id="backupDownload">全データをバックアップ</button><label class="btn" for="restoreBackup">バックアップを復元<input id="restoreBackup" type="file" accept=".json" hidden></label></div></div>`};
+function appBackup(){return {format:'kebbi-measurement-backup',schemaVersion:2,exportedAt:K.stamp(),data:S.data,settings:S.settings,deletedIds,audit,mappings:K.getMappings()}}
+const oldBindData=bindData;
+bindData=function(){oldBindData();$('exCsv').disabled=isEmpty();$('cpCsv').disabled=isEmpty();$('reportDownload').onclick=()=>K.report('測定レポート','<pre>'+esc(reportText().replace('※例のデータ',''))+'</pre><p>CSV出力は全拠点の全記録。レポートの拠点は「結果を見る」の選択に従います。実測値がない項目は「—」です。</p>');$('backupDownload').onclick=()=>K.download('Kebbi_測定バックアップ_'+today()+'.json',JSON.stringify(appBackup(),null,2));$('restoreBackup').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{const{json:j}=await K.parseFile(file);if(j?.format!=='kebbi-measurement-backup'||j.schemaVersion!==2||!j.data||COLS.some(c=>!Array.isArray(j.data[c])))throw Error('測定アプリのバックアップではありません');const rows=flatRows(j.data);for(const row of rows){const r=Object.fromEntries(CSV_COLS.map(([k,v])=>[k,row[v]??'']));const err=K.validateMeasure(r);if(err.length)throw Error(err.join('、'))}if(!j.settings||!Array.isArray(j.settings.sites))throw Error('設定が不正です');if(!confirm('現在の測定データをバックアップの内容に置き換えます。続けますか？'))return;K.download('復元前の測定バックアップ.json',JSON.stringify(appBackup(),null,2));const prev={data:S.data,settings:S.settings,deletedIds,audit};S.data=j.data;S.settings={...DEFAULTS,...j.settings};deletedIds=j.deletedIds||[];audit=j.audit||[];saveError=false;if(!saveLocal()){Object.assign(S,{data:prev.data,settings:prev.settings});deletedIds=prev.deletedIds;audit=prev.audit;return}if(j.mappings)K.restoreMappings(j.mappings);render();toast('復元しました')}catch(e){alert(e.message)}}};
+importMeasure=async function(rows,name){const next=structuredClone(S.data),have=new Map(COLS.flatMap(c=>next[c].map(r=>[r.id,{c,r}])));let n=0,dup=0;const errors=[];const daily=[];
+  for(let i=0;i<rows.length;i++){const r=K.normalizeMeasure(rows[i]);if(/^EX\d+$/.test(r['レコードID']||'')){errors.push(`行${i+2}：架空例`);continue}const errs=K.validateMeasure(r);if(errs.length){errors.push(`行${i+2}：${errs.join('、')}`);continue}const type=JA_TYPE[r['計測種別']];let original={};try{if(r['原データJSON'])original=JSON.parse(r['原データJSON']);if(!original||typeof original!=='object'||Array.isArray(original))throw Error()}catch{errors.push(`行${i+2}：原データJSONが不正`);continue}
+    if(type==='kebbi'){const p={...original,site:r['拠点'],date:r['日付'],n:num(r['日次_申し送り回数']),rows:num(r['日次_利用者記録数']),staff:num(r['日次_利用職員数']),corr:num(r['日次_AI要約修正回数']),auto:num(r['日次_自動識別数']),recv:num(r['日次_受け取り完了数']),durSum:num(r['日次_録音確定分合計']),durN:num(r['日次_録音確定件数']),leadSum:num(r['日次_確定受取分合計']),leadN:num(r['日次_確定受取件数']),unid:num(r['日次_未識別数'])};if(p.durN==null&&num(r['日次_録音確定平均分'])!=null){p.durN=p.n;p.durSum=num(r['日次_録音確定平均分'])*p.n}daily.push(p);continue}
+    const o={...original,id:r['レコードID']};for(const[j,k]of CSV_COLS){if(k.startsWith('_')||k==='id')continue;o[k]=['site','date','slot','method','role','model','recId','memo','dev','at','observerRef','observerId','updatedAt'].includes(k)?r[j]||'':num(r[j])}if(type!=='ai')o.phase=r['測定期']==='導入前'?'pre':'post';if(type==='ai')o.errorTypes=String(r['誤り類型']||'').split('／').filter(Boolean);if(type==='survey'){o.burden=BURDEN.map((_,i)=>num(r['負担感'+(i+1)]));const s=SUS.map((_,i)=>num(r['SUS'+(i+1)]));if(s.every(v=>v!=null))o.sus=s;else delete o.sus}const old=have.get(o.id);if(old){const oldRow=flatRows(Object.fromEntries(COLS.map(c=>[c,c===old.c?[old.r]:[]])))[0];const oldJ=Object.fromEntries(CSV_COLS.filter(([j,k])=>k!=='_rawJSON').map(([j,k])=>[j,String(oldRow[k]??'')]));const newJ=Object.fromEntries(CSV_COLS.filter(([j,k])=>k!=='_rawJSON').map(([j])=>[j,String(r[j]??'')]));if(K.stable(oldJ)===K.stable(newJ))dup++;else errors.push(`行${i+2}：ID ${o.id} は既存内容と異なります（既存を保持）`);continue}next[type].push(o);have.set(o.id,{c:type,r:o});n++}
+  if(daily.length){const existing=kebbiDays(next,true);const adds=daily.filter(p=>{const same=existing.find(x=>x.site===p.site&&x.date===p.date);if(same&&K.stable(same)===K.stable(p)){dup++;return false}if(same){errors.push(p.site+' '+p.date+'：日次集計が既存と異なります');return false}existing.push(p);return true});if(adds.length){next.kebbi.push({id:'daily-'+K.uuid(),fileName:name,importedAt:K.stamp(),perDay:adds});n+=adds.length}}
+  const before=S.data;S.data=next;if(!saveLocal()){S.data=before;return name+'：保存失敗'}if(errors.length)K.download('取込できなかった行_'+today()+'.csv',K.csv(errors.map(reason=>({ファイル:name,理由:reason}))));return `${name}：追加${n}件／重複${dup}件／要確認${errors.length}件${errors.length?'（理由CSVを保存）':''}`};
+importFiles=async function(files){const messages=[];for(const f of files){try{const r=await K.parseFile(f);if(r.rows&&r.fields.includes('計測種別'))messages.push(await importMeasure(r.rows,f.name));else if(r.rows&&['申し送りID','拠点','録音開始','確定日時','利用者ID'].every(c=>r.fields.includes(c)))messages.push(await importKebbi(r.rows,f.name));else messages.push(f.name+'：対応形式ではありません')}catch(e){messages.push(f.name+'：'+e.message)}}S.impMsg=messages.join('\n');render();toast('取り込み結果を確認してください')};
+const oldImportKebbi=importKebbi;
+importKebbi=async function(rows,name){const fields=['申し送りID','拠点','録音開始','確定日時','申し送り者ID','利用者ID','項目','利用者識別','AI要約修正','受け取り日時'];const prior=S.data.kebbi.find(x=>x.id==='kebbi-cumulative-v2');const union=new Map((prior?.sourceRows||[]).map(r=>[JSON.stringify([r['拠点'],r['申し送りID'],r['利用者ID'],r['項目']]),r]));let added=0;for(let i=0;i<rows.length;i++){const r=Object.fromEntries(fields.map(k=>[k,rows[i][k]||'']));const st=parseDT(r['録音開始']),fi=parseDT(r['確定日時']);if(!r['申し送りID']||!r['拠点']||!st||!fi||fi<st)return name+`：行${i+2}のID・拠点・日時が不正のため取込中止`;const key=JSON.stringify([r['拠点'],r['申し送りID'],r['利用者ID'],r['項目']]);const old=union.get(key);if(old&&K.stable(old)!==K.stable(r))return name+`：行${i+2}は取込済みの同一キーと内容が異なります。元データを確認してください`;if(!old){union.set(key,r);added++}}if(!added)return name+'：同一行はすべて取込済み';
+  const previous=structuredClone(S.data.kebbi);const beforeIds=new Set(S.data.kebbi.map(r=>r.id));const message=await oldImportKebbi([...union.values()],name);const made=S.data.kebbi.find(r=>!beforeIds.has(r.id));if(!made)return message;made.id='kebbi-cumulative-v2';made.sourceRows=[...union.values()];S.data.kebbi=S.data.kebbi.filter(r=>r===made||r.id!=='kebbi-cumulative-v2');if(!saveLocal()){S.data.kebbi=previous;return name+'：保存失敗'}return name+`：新規${added}行を統合。累計${union.size}行から日次集計を更新`};
+window.addEventListener('storage',e=>{if(e.key===LS){loadLocal();if(S.tab!=='input')render()}});
+const oldBindSettings=bindSettings;
+bindSettings=function(){oldBindSettings();const f=$('sf'),submit=f?.onsubmit;if(f)f.onsubmit=e=>{const a=$('sPs').value,b=$('sPe').value,c=$('sQs').value,d=$('sQe').value;if(![a,b,c,d].every(K.validDate)||a>b||c>d||b>=c){e.preventDefault();toast('期間を確認してください。導入前→実証の順で重ならない日付を指定します');return}submit(e)}};
+const oldSaveSettings=saveSettings;
+saveSettings=async function(settings){const before=S.settings;S.settings={...S.settings,...settings};if(!saveLocal()){S.settings=before;return}toast('設定を保存しました');render()};
+const toolBar=document.createElement('div');toolBar.className='toolbar-wrap';toolBar.innerHTML='<div class="actions"><a href="datamgmt.html">管理画面を開く</a><span class="draft-note">①計測を入力 → ②保存 → ③CSV・レポート出力</span></div>';document.querySelector('main').before(toolBar);K.installMasterButton(toolBar.firstElementChild);
+
+window.KebbiModule={showMaster:K.showMaster};
+render();initStore();
+})();
+</script>
+
+</body>
+</html>

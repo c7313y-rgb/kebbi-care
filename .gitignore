@@ -1,0 +1,7 @@
+node_modules/
+qa-output/
+.env*
+*accounts*.json
+*配布用*.csv
+*master.json
+workbook.json

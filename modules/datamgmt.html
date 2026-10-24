@@ -1,0 +1,660 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><style>header.head{display:none!important}</style></head><body>
+<title>Kebbi Care Shift データ管理</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+
+
+
+<style>
+/* Layout: 上部に拠点・期間の共通フィルタとタブ。「概要（効率化KPI）」「利用者」「データ取込・品質」の3画面。色は資料の機能色（申し送り=青、健康チェック=緑、看護師=橙）に合わせる */
+:root{
+  --bg:#eef2f6; --panel:#ffffff; --fg:#1b2735; --muted:#5a6878; --line:#d6dde5; --soft:#e7ecf2;
+  --ho:#2f6fb5; --ho-soft:#dfeaf7; --hc:#178577; --hc-soft:#d9f0ec; --nu:#b8742a; --nu-soft:#f6e8d6; --ct:#6f5aa8;
+  --good:#1d7a3e; --good-soft:#dcefe2; --warn:#a86400; --warn-soft:#fbefd9; --bad:#b3261e; --bad-soft:#f9dedc;
+  --f-body:"BIZ UDPGothic","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0e141b; --panel:#16202a; --fg:#e3e9ef; --muted:#93a2b1; --line:#2a3644; --soft:#1d2834;
+  --ho:#6ea6e6; --ho-soft:#18304a; --hc:#4cc2b0; --hc-soft:#143630; --nu:#e3a35c; --nu-soft:#3a2a16; --ct:#a896e0;
+  --good:#6bc68b; --good-soft:#18331f; --warn:#e7a443; --warn-soft:#3a2b14; --bad:#f08a80; --bad-soft:#3c1d1b; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e141b; --panel:#16202a; --fg:#e3e9ef; --muted:#93a2b1; --line:#2a3644; --soft:#1d2834;
+  --ho:#6ea6e6; --ho-soft:#18304a; --hc:#4cc2b0; --hc-soft:#143630; --nu:#e3a35c; --nu-soft:#3a2a16; --ct:#a896e0;
+  --good:#6bc68b; --good-soft:#18331f; --warn:#e7a443; --warn-soft:#3a2b14; --bad:#f08a80; --bad-soft:#3c1d1b; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:14px;line-height:1.6;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:14px 48px}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--panel)}
+h1,h2,h3{margin:0;text-wrap:balance}
+h1{font-size:19px;font-weight:700;letter-spacing:.02em}
+h2{font-size:14px;font-weight:700}
+.n,.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.head{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:10px 18px;margin-bottom:12px}
+.head p{margin:2px 0 0;color:var(--muted);font-size:12.5px;max-width:70ch}
+.badge{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:700;white-space:nowrap}
+.badge.sample{background:var(--warn-soft);color:var(--warn)}
+.badge.real{background:var(--good-soft);color:var(--good)}
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 10px;display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-bottom:14px}
+.tabs{display:flex;gap:4px;flex-wrap:wrap}
+.tabs button{border:none;background:none;color:var(--muted);font-weight:700;padding:7px 12px;border-radius:7px}
+.tabs button[aria-selected="true"]{background:var(--fg);color:var(--panel)}
+.filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-left:auto}
+.filters label{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--muted)}
+select,input[type=text],input[type=date],input[type=number]{font:inherit;font-size:13px;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:5px 8px;min-width:0}
+input[type=number]{width:72px}
+button{font:inherit;font-size:13px;cursor:pointer;border-radius:6px;border:1px solid var(--line);background:var(--panel);color:var(--fg);padding:6px 10px}
+button:hover{border-color:var(--ho)}
+:focus-visible{outline:2px solid var(--ho);outline-offset:1px}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;min-width:0}
+.box>h2{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:6px 10px;margin-bottom:10px}
+.sub{font-size:12px;color:var(--muted);font-weight:400}
+.stack{display:flex;flex-direction:column;gap:14px}
+.g2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}
+.g3{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:14px}
+@media (max-width:980px){.g2,.g3{grid-template-columns:minmax(0,1fr)}}
+.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(205px,1fr));gap:10px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:3px;border-top:3px solid var(--c,var(--ho))}
+.kpi .k{font-size:12px;color:var(--muted)}
+.kpi .v{font-family:var(--f-mono);font-variant-numeric:tabular-nums;font-size:24px;font-weight:500;line-height:1.2}
+.kpi .v small{font-size:13px;color:var(--muted);margin-left:2px}
+.kpi .d{font-size:12px;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center}
+.chip{display:inline-block;font-size:11px;padding:1px 7px;border-radius:999px;font-family:var(--f-mono);white-space:nowrap}
+.chip.up{background:var(--good-soft);color:var(--good)} .chip.down{background:var(--bad-soft);color:var(--bad)} .chip.flat{background:var(--soft);color:var(--muted)}
+.tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:4px;white-space:nowrap;font-weight:700}
+.tag.ho{background:var(--ho-soft);color:var(--ho)} .tag.hc{background:var(--hc-soft);color:var(--hc)} .tag.nu{background:var(--nu-soft);color:var(--nu)}
+.tag.warn{background:var(--warn-soft);color:var(--warn)} .tag.bad{background:var(--bad-soft);color:var(--bad)} .tag.ok{background:var(--good-soft);color:var(--good)} .tag.mute{background:var(--soft);color:var(--muted)}
+.chartbox{position:relative;height:260px}
+.scroll{overflow-x:auto;max-width:100%}
+.tall{max-height:440px;overflow:auto}
+table{border-collapse:collapse;width:100%;font-size:12.5px}
+th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{font-size:11.5px;color:var(--muted);font-weight:700;position:sticky;top:0;background:var(--panel);white-space:nowrap}
+td.n,th.n{text-align:right;white-space:nowrap}
+tbody tr:hover td{background:var(--soft)}
+tr.click{cursor:pointer}
+.note{font-size:12px;color:var(--muted);margin:8px 0 0}
+.btnlike{font-size:13px;cursor:pointer;border-radius:6px;border:1px solid var(--line);background:var(--panel);color:var(--fg);padding:6px 10px;display:inline-flex;align-items:center;text-decoration:none}
+.btnlike:focus-within{outline:2px solid var(--ho)}
+.tentative{background:var(--warn-soft);color:var(--warn);border-radius:8px;padding:8px 12px;font-size:12.5px}
+.tentative b{font-weight:700}
+/* 利用者画面 */
+.res{display:grid;grid-template-columns:300px minmax(0,1fr);gap:14px;align-items:start}
+@media (max-width:900px){.res{grid-template-columns:minmax(0,1fr)}}
+.reslist{display:flex;flex-direction:column;gap:2px;max-height:620px;overflow:auto;margin-top:8px}
+.reslist button{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;text-align:left;border:none;border-radius:7px;background:none;padding:7px 9px}
+.reslist button[aria-current="true"]{background:var(--ho-soft)}
+.reslist .nm{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.reslist .mt{font-size:11px;color:var(--muted)}
+.profile{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:baseline}
+.profile .big{font-size:20px;font-weight:700}
+.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin-top:10px}
+.stat{background:var(--soft);border-radius:8px;padding:8px 10px}
+.stat .k{font-size:11px;color:var(--muted)} .stat .v{font-family:var(--f-mono);font-size:18px}
+.tl{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.tl li{display:grid;grid-template-columns:96px 14px minmax(0,1fr);gap:8px;padding:6px 0}
+.tl .t{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);text-align:right;padding-top:2px}
+.tl .dot{width:10px;height:10px;border-radius:50%;margin-top:6px;background:var(--c)}
+.tl .body{border-bottom:1px solid var(--line);padding-bottom:6px;min-width:0}
+.tl .body p{margin:2px 0 0}
+.alerts{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.alerts li{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 10px;border-radius:8px;background:var(--soft);cursor:pointer}
+.alerts li:hover{outline:1px solid var(--ho)}
+/* データ画面 */
+.drop{display:block;border:1.5px dashed var(--line);border-radius:10px;padding:16px;text-align:center;color:var(--muted);cursor:pointer;font-size:12.5px}
+.drop.on{border-color:var(--ho);background:var(--ho-soft);color:var(--ho)}
+.drop strong{display:block;color:var(--fg);font-size:14px;margin-bottom:2px}
+.srcs{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px}
+.src{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;border-left:4px solid var(--c)}
+.src .t{display:flex;justify-content:space-between;align-items:center;gap:6px;font-weight:700}
+.src .m{font-size:12px;color:var(--muted)}
+.cols{display:flex;flex-wrap:wrap;gap:4px}
+.mini{font-size:11px;padding:2px 7px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:8px 14px;border-radius:7px;font-size:13px;z-index:20;max-width:calc(100% - 32px)}
+.empty{padding:24px;text-align:center;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<header class="head">
+  <div>
+    <h1>Kebbi Care Shift データ管理</h1>
+    <p>申し送り・健康チェック・看護師間申し送りのCSVを取り込み、利用者IDで統合して、申し送り業務の効率化KPIと利用者ごとの経過を確認する管理画面です。</p>
+  </div>
+  <span class="badge sample" id="dataBadge">● 架空のサンプルデータ</span>
+</header>
+
+<nav class="bar" aria-label="画面と絞り込み">
+  <div class="tabs" role="tablist">
+    <button role="tab" type="button" data-tab="overview" aria-selected="true">概要・KPI</button>
+    <button role="tab" type="button" data-tab="residents" aria-selected="false">利用者</button>
+    <button role="tab" type="button" data-tab="measure" aria-selected="false">実証KPI（計測アプリ）</button>
+    <button role="tab" type="button" data-tab="data" aria-selected="false">データ取込・品質</button>
+  </div>
+  <div class="filters">
+    <label>拠点<select id="fSite"></select></label>
+    <label>期間<input type="date" id="fFrom"><span>〜</span><input type="date" id="fTo"></label>
+  </div>
+</nav>
+
+<!-- ========== 概要 ========== -->
+<section id="tab-overview" class="stack">
+  <div class="kpis" id="kpis"></div>
+
+  <div class="box">
+    <h2>ベースライン比較 <span class="sub">導入前の実測値を入れると削減率を計算します（未入力の間は比較しません）</span></h2>
+    <div class="filters" style="margin-left:0;justify-content:flex-start">
+      <label>導入前の申し送り所要時間<input type="number" id="blTime" min="0" step="0.5" placeholder="未測定">分/回</label>
+      <label>導入前の記録作成時間<input type="number" id="blWrite" min="0" step="0.5" placeholder="未測定">分/回</label>
+      <label>健康チェックの想定頻度（仮）<input type="number" id="freq" min="1" max="14" value="2">回/週</label>
+    </div>
+    <p class="note" id="blResult"></p>
+  </div>
+
+  <div class="g2">
+    <div class="box">
+      <h2>効率化KPIの週次推移 <span class="sub">録音開始→確定の平均時間とAI要約の修正率</span></h2>
+      <div class="chartbox"><canvas id="cTrend" aria-label="週次推移"></canvas></div>
+    </div>
+    <div class="box">
+      <h2>拠点別の比較</h2>
+      <div class="scroll" id="siteTable"></div>
+    </div>
+  </div>
+
+  <div class="g2">
+    <div class="box">
+      <h2>申し送り 7項目の記録件数 <span class="tag warn">項目名は仮置き</span></h2>
+      <div class="chartbox"><canvas id="cItems" aria-label="7項目の件数"></canvas></div>
+    </div>
+    <div class="box">
+      <h2>健康チェック 設問別の回答 <span class="tag warn">設問は仮置き</span></h2>
+      <div class="chartbox"><canvas id="cQs" aria-label="設問別回答"></canvas></div>
+    </div>
+  </div>
+
+  <div class="box">
+    <h2>要フォローの利用者 <span class="sub">クリックで利用者画面へ</span></h2>
+    <ul class="alerts" id="alerts"></ul>
+    <p class="note">判定ルール（仮）：健康スコアの直近2回平均が期間平均より15点以上低い／過去3日以内に看護師の「重要」申し送りあり／健康チェック未実施が10日以上。ルールと閾値はジェネラスの確認待ちです。</p>
+  </div>
+</section>
+
+<!-- ========== 利用者 ========== -->
+<section id="tab-residents" hidden>
+  <div class="res">
+    <div class="box">
+      <h2>利用者一覧</h2>
+      <input type="text" id="resSearch" placeholder="ID・氏名で検索" aria-label="利用者を検索" style="width:100%">
+      <div class="reslist" id="resList"></div>
+    </div>
+    <div class="stack" id="resDetail"></div>
+  </div>
+</section>
+
+<!-- ========== 実証KPI（KPI計測アプリ連携） ========== -->
+<section id="tab-measure" class="stack" hidden>
+  <div class="box">
+    <h2>KPI計測アプリとの連携 <span class="sub" id="mLinkState"></span></h2>
+    <p class="note" style="margin-top:0">KPI計測アプリの記録（計測CSV）を取り込むと、導入前と実証の比較・AIの精度比較をここに表示します。端末ごとのCSVを何回入れても、同じ記録は二重になりません。</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+      <button type="button" id="mLoadApp">自分の測定を取り込む</button>
+      <label class="btnlike" for="mFile">計測CSVをアップロード<input type="file" id="mFile" accept=".csv,.txt,text/csv" multiple hidden></label>
+      <a class="btnlike" href="index.html">KPI計測アプリを開く</a>
+      <button type="button" id="mClear">計測データを外す</button>
+    </div>
+    <p class="note" id="mMsg"></p>
+  </div>
+  <div class="kpis" id="mTiles"></div>
+  <div class="box"><h2>業務の再設計・導入効果 <span class="sub">導入前と実証の比較（時間は中央値）</span></h2><div class="scroll" id="mEffect"></div></div>
+  <div class="g2">
+    <div class="box"><h2>技術の優位性・国産モデルへのフィードバック <span class="sub">同じ記録を2モデルで採点</span></h2><div class="scroll" id="mAI"></div></div>
+    <div class="box"><h2>取り込んだ計測データ</h2><div class="scroll" id="mSrc"></div></div>
+  </div>
+</section>
+
+<!-- ========== データ ========== -->
+<section id="tab-data" class="stack" hidden>
+  <div class="box">
+    <h2>CSVの取り込み <span class="sub">列名から種類を自動判定。UTF-8 / Shift_JIS 対応。同じ種類は追記（拠点別ファイルを統合）</span></h2>
+    <label class="drop" id="drop" for="file">
+      <strong>CSVを選択、またはここにドラッグ</strong>申し送り／健康チェック／看護師申し送り／利用者マスタ／職員マスタ／KPI計測アプリの計測CSV（複数同時可）
+      <input type="file" id="file" accept=".csv,.tsv,.txt,text/csv" multiple hidden>
+    </label>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+      <button type="button" id="resetSample">サンプルに戻す</button>
+      <button type="button" id="copyTimeline">統合タイムラインCSVをコピー</button>
+      <button type="button" id="copyDaily">利用者×日の集計CSVをコピー</button>
+    </div>
+  </div>
+
+  <div class="srcs" id="srcs"></div>
+
+  <div class="box">
+    <h2>データ品質チェック</h2>
+    <div class="scroll" id="quality"></div>
+  </div>
+
+  <div class="box">
+    <h2>CSV定義（案） <select id="defSel" aria-label="CSVの種類"></select></h2>
+    <div class="tentative" id="defNote"></div>
+    <div class="scroll" id="defTable" style="margin-top:10px"></div>
+    <div style="margin-top:8px"><button type="button" id="copyHeader">この種類の見出し行をコピー</button></div>
+  </div>
+
+  <div class="box">
+    <h2><span id="pvTitle">データプレビュー</span> <span style="display:flex;gap:6px;flex-wrap:wrap"><select id="pvSel" aria-label="表示するCSV"></select><input type="text" id="pvSearch" placeholder="絞り込み" aria-label="プレビューを絞り込む"></span></h2>
+    <div class="scroll tall" id="preview"></div>
+  </div>
+</section>
+
+<div class="toast" id="toast" hidden></div>
+
+<link rel="stylesheet" href="enhance.css">
+<script src="papaparse.min.js"></script>
+<script src="secure-bootstrap.js"></script>
+<script src="shared.js"></script>
+<script src="chart.umd.min.js"></script>
+<script>
+(()=>{
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* ---------- CSV定義（案） ---------- */
+const ITEMS=['食事量','排尿','排便','体調変化','不穏行動','睡眠','服薬'];
+const QUESTIONS=[['Q1','昨夜はよく眠れましたか'],['Q2','食欲はありますか'],['Q3','どこか痛いところはありますか'],['Q4','気分はいかがですか'],['Q5','いつもと違うところはありますか']];
+const SCHEMAS={
+  handover:{label:'申し送り',c:'--ho',cls:'ho',key:'申し送りID',
+    cols:[['申し送りID','必須','1回の録音（申し送り）単位のID'],['拠点','必須','3拠点のいずれか'],['録音開始','必須','YYYY-MM-DD HH:MM'],['録音秒数','任意','録音の長さ（秒）'],['確定日時','必須','職員がAIの要約を確認して確定した日時'],['申し送り者ID','必須','ログイン職員（顔認証／PIN）'],['利用者ID','必須','AIが識別した利用者。1回の申し送りに複数行'],['利用者識別','任意','AI自動／手動修正／未識別'],['項目','必須','7項目のいずれか'],['要約','必須','AI要約（確定後の文）'],['AI要約修正','任意','修正なし／修正あり'],['受け手ID','任意','申し送りを受けた職員'],['受け取り日時','任意','表示・発話で「申し送り完了」にした日時']],
+    note:'7項目は応募書・UI運用仕様（10/17）に合わせ「食事量・排尿・排便・体調変化・不穏行動・睡眠・服薬」。7項目に収まらない発話は「その他」。<b>未確定：</b>各項目の判定基準、利用者識別の区分、受け取り完了の記録方法。現在の値は仮置きです。'},
+  health:{label:'健康チェック',c:'--hc',cls:'hc',key:'実施ID',
+    cols:[['実施ID','必須','1回の健康チェック単位のID'],['実施日時','必須','YYYY-MM-DD HH:MM'],['拠点','必須',''],['利用者ID','必須','顔認証／利用者IDで識別'],['認証方法','任意','顔認証／利用者ID／職員補助'],['実施職員ID','任意','職員補助の場合'],['設問ID','必須',''],['設問','任意','設問文'],['回答','必須','はい／少し／いいえ など'],['回答スコア','任意','0〜2（2が良好）'],['状態','任意','完了／途中保存'],['所要秒数','任意','1回の所要時間']],
+    note:'<b>未確定（ジェネラスにて確定が必要）：</b>設問数、固定／ランダム、提示ルール、実施時期・頻度。回答のスコア化方法も仮置きです。'},
+  nurse:{label:'看護師申し送り',c:'--nu',cls:'nu',key:'記録ID',
+    cols:[['記録ID','必須',''],['日時','必須','YYYY-MM-DD HH:MM'],['拠点','必須',''],['看護師ID','必須','IDログイン'],['受け手看護師ID','任意',''],['利用者ID','必須',''],['重要度','任意','重要／通常'],['内容','必須','重要事項・内容']],
+    note:'<b>未確定：</b>ホーム画面との接続、記録項目。資料では職員間の申し送りから独立した流れとして整理されています。'},
+  resident:{label:'利用者マスタ',c:'--ct',cls:'mute',key:'利用者ID',
+    cols:[['利用者ID','必須','全CSVの結合キー'],['氏名','必須','表示名（デモは仮名）'],['拠点','必須',''],['要介護度','任意',''],['居室','任意','']],
+    note:'<b>未確定：</b>利用者IDの採番ルールと、既存の介護記録システムのIDと揃えるかどうか。1拠点あたりの人数も要確認です。'},
+  staff:{label:'職員マスタ',c:'--muted',cls:'mute',key:'職員ID',
+    cols:[['職員ID','必須',''],['氏名','必須',''],['職種','必須','介護職／看護師'],['拠点','必須','']],
+    note:'<b>未確定：</b>顔認証・PINのIDとの対応、拠点をまたぐ勤務の扱い。'},
+  measure:{label:'計測（KPI計測アプリ）',c:'--muted',cls:'mute',key:'レコードID',
+    cols:[['レコードID','必須','KPI計測アプリが付けるID'],['計測種別','必須','申し送り時間／受け手確認／AI精度／職員アンケート／Kebbi利用（日次）'],['測定期','必須','導入前／実証'],['拠点','必須','このCSVの拠点名と同じ表記'],['日付','必須','YYYY-MM-DD'],['所要分','任意','ストップウォッチで測った申し送り1回の時間'],['対象利用者数','任意',''],['重要事項数','任意',''],['伝達漏れ数','任意',''],['情報把握分','任意','後から来た職員が把握するまで'],['確認問題数','任意',''],['正答数','任意','']],
+    note:'「Kebbi申し送り KPI計測」アプリの「計測CSVを保存」で出力したファイルです。取り込むと、導入前の申し送り所要時間（中央値）がベースライン比較に自動で入ります（入力欄に手入力した値が優先）。'}
+};
+const TYPES=Object.keys(SCHEMAS);
+const D={};TYPES.forEach(t=>D[t]={rows:[],files:[]});
+let isSample=false;
+
+/* ---------- 汎用ヘルパー ---------- */
+function toNum(v){if(v==null||v==='')return null;const n=Number(String(v).replace(/[,\s]/g,''));return isFinite(n)?n:null}
+function toDate(v){if(!v)return null;const m=String(v).trim().match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+  if(!m)return null;return new Date(+m[1],+m[2]-1,+m[3],+(m[4]||0),+(m[5]||0),+(m[6]||0))}
+const pad=n=>String(n).padStart(2,'0');
+const ymd=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const ymdhm=d=>`${ymd(d)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+const weekKey=d=>{const w=new Date(d.getFullYear(),d.getMonth(),d.getDate()-((d.getDay()+6)%7));return ymd(w)};
+const avg=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
+const pct=(a,b)=>b?a/b:null;
+const f1=n=>n==null||!isFinite(n)?'—':n.toLocaleString('ja-JP',{maximumFractionDigits:1,minimumFractionDigits:1});
+const f0=n=>n==null||!isFinite(n)?'—':Math.round(n).toLocaleString('ja-JP');
+const fp=n=>n==null||!isFinite(n)?'—':(n*100).toFixed(1)+'%';
+function chg(a,b,goodWhenDown){if(a==null||b==null||!b)return '<span class="chip flat">—</span>';const p=(a-b)/Math.abs(b);
+  const good=goodWhenDown?p<0:p>0;return `<span class="chip ${Math.abs(p)<.005?'flat':good?'up':'down'}">${p>0?'+':''}${(p*100).toFixed(1)}%</span>`}
+function tok(n){return getComputedStyle(document.documentElement).getPropertyValue(n).trim()}
+function toast(m){const t=$('toast');t.textContent=m;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,2600)}
+async function copy(text,ok){try{await navigator.clipboard.writeText(text);toast(ok)}catch(e){toast('コピーできませんでした。ブラウザのクリップボード権限を確認してください')}}
+
+/* ---------- 取り込み ---------- */
+function detect(fields){let best=null;for(const t of TYPES){const req=SCHEMAS[t].cols.filter(c=>c[1]==='必須').map(c=>c[0]);
+  const hit=req.filter(c=>fields.includes(c)).length/req.length;if(!best||hit>best.hit)best={t,hit}}return best&&best.hit>=.7?best:null}
+async function readFile(f){const buf=await f.arrayBuffer();try{return new TextDecoder('utf-8',{fatal:true}).decode(buf)}catch(e){return new TextDecoder('shift_jis').decode(buf)}}
+async function handleFiles(list){const files=[...list];if(!files.length)return;const done=[],ng=[];
+  for(const f of files){let text;try{text=await readFile(f)}catch(e){ng.push(f.name);continue}
+    const r=Papa.parse(text.replace(/^﻿/,''),{header:true,skipEmptyLines:'greedy',transformHeader:h=>h.trim()});
+    const det=detect(r.meta.fields||[]);if(!det){ng.push(f.name);continue}
+    const slot=D[det.t];if(slot.files.length===1&&slot.files[0]==='サンプル'){slot.rows=[];slot.files=[]}
+    for(const row of r.data)for(const k in row)if(typeof row[k]==='string')row[k]=row[k].trim();
+    if(det.t==='measure'){const add=mergeMeasure(r.data);slot.files.push(f.name);done.push(`${f.name} → 計測 ${add.n}件追加${add.dup?`（重複${add.dup}件は省略）`:''}${add.ex?`（例のデータ${add.ex}件は除外）`:''}`);continue}
+    slot.rows.push(...r.data);slot.files.push(f.name);done.push(`${f.name} → ${SCHEMAS[det.t].label}`)}
+  isSample=TYPES.some(t=>D[t].files.includes('サンプル'));
+  rebuild();
+  lastImport=done;if(ng.length)toast(`判定できなかったファイル：${ng.join('、')}（列名をCSV定義と照合してください）`);else toast(done.join('　')||'取り込みました')}
+$('file').addEventListener('change',e=>{handleFiles(e.target.files);e.target.value=''});
+const drop=$('drop');['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('on')}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('on')}));
+drop.addEventListener('drop',e=>handleFiles(e.dataTransfer.files));
+$('resetSample').hidden=true;
+
+/* ---------- 統合モデル ---------- */
+let M={};
+function build(){
+  const res=new Map(D.resident.rows.map(r=>[r['利用者ID'],r]));const staff=new Map(D.staff.rows.map(r=>[r['職員ID'],r]));
+  const ho=new Map();for(const r of D.handover.rows){const id=r['申し送りID']?r['拠点']+'|'+r['申し送りID']:'';if(!id)continue;
+    if(!ho.has(id))ho.set(id,{id,site:r['拠点'],start:toDate(r['録音開始']),fix:toDate(r['確定日時']),sec:toNum(r['録音秒数']),by:r['申し送り者ID'],to:r['受け手ID']||'',recv:toDate(r['受け取り日時']),rows:[]});
+    ho.get(id).rows.push(r)}
+  const hs=new Map();for(const r of D.health.rows){const id=r['実施ID']?r['拠点']+'|'+r['実施ID']:'';if(!id)continue;
+    if(!hs.has(id))hs.set(id,{id,site:r['拠点'],at:toDate(r['実施日時']),res:r['利用者ID'],auth:r['認証方法']||'',state:r['状態']||'完了',sec:toNum(r['所要秒数']),rows:[]});
+    hs.get(id).rows.push(r)}
+  for(const s of hs.values()){const sc=s.rows.map(r=>toNum(r['回答スコア'])).filter(v=>v!=null);s.score=sc.length?avg(sc)/2*100:null}
+  const nu=D.nurse.rows.map(r=>({...r,at:toDate(r['日時'])}));
+  const sites=[...new Set([...D.resident.rows.map(r=>r['拠点']),...[...ho.values()].map(h=>h.site),...[...hs.values()].map(h=>h.site)].filter(Boolean))].sort();
+  const dates=[...[...ho.values()].map(h=>h.start),...[...hs.values()].map(h=>h.at),...nu.map(n=>n.at)].filter(Boolean);
+  M={res,staff,ho:[...ho.values()],hs:[...hs.values()],nu,sites,min:dates.length?new Date(Math.min(...dates)):null,max:dates.length?new Date(Math.max(...dates)):null}}
+function inRange(d,site,siteVal){if(!d)return false;const k=ymd(d);const f=$('fFrom').value,t=$('fTo').value;if(f&&k<f)return false;if(t&&k>t)return false;
+  const s=$('fSite').value;return !s||site===s}
+function filtered(){return{
+  ho:M.ho.filter(h=>inRange(h.start,h.site)),hs:M.hs.filter(h=>inRange(h.at,h.site)),nu:M.nu.filter(n=>inRange(n.at,n['拠点'])),
+  res:[...M.res.values()].filter(r=>!$('fSite').value||r['拠点']===$('fSite').value)}}
+
+/* ---------- KPI計測アプリとの連携 ---------- */
+function measureBase(){const s=$('fSite').value;const rows=(D.measure?.rows||[]).filter(r=>r['計測種別']==='申し送り時間'&&(!s||r['拠点']===s));
+  const med=a=>{const b=a.filter(v=>v!=null).sort((x,y)=>x-y);if(!b.length)return null;const m=Math.floor(b.length/2);return b.length%2?b[m]:(b[m-1]+b[m])/2};
+  const pre=rows.filter(r=>r['測定期']==='導入前').map(r=>toNum(r['所要分'])),post=rows.filter(r=>r['測定期']==='実証').map(r=>toNum(r['所要分']));
+  const v=med(pre);return v==null?null:{v,n:pre.filter(x=>x!=null).length,post:med(post),np:post.filter(x=>x!=null).length}}
+/* ---------- KPI計算 ---------- */
+function hoStats(list){const dur=[],lead=[];let fixed=0,recv=0,rows=0,auto=0,corr=0,items=new Map();
+  for(const h of list){if(h.start&&h.fix){dur.push((h.fix-h.start)/60000);fixed++}
+    if(h.recv){recv++;if(h.fix)lead.push((h.recv-h.fix)/60000)}
+    if(h.rows.some(r=>r['AI要約修正']==='修正あり'))corr++;
+    for(const r of h.rows){rows++;if(r['利用者識別']==='AI自動')auto++;items.set(r['項目'],(items.get(r['項目'])||0)+1)}}
+  return{n:list.length,rows,avgDur:avg(dur),corrRate:pct(corr,list.length),autoRate:pct(auto,rows),recvRate:pct(recv,list.length),lead:avg(lead),items,perHo:list.length?rows/list.length:null}}
+function hsStats(list,resCount,days,freq){const done=list.filter(s=>s.state==='完了');const sessions=new Set(done.map(s=>s.res+'|'+ymd(s.at)));
+  const expected=resCount*days/7*freq;
+  return{n:list.length,done:done.length,susp:pct(list.length-done.length,list.length),rate:expected?Math.min(1,sessions.size/expected):null,expected,
+    face:pct(list.filter(s=>s.auth==='顔認証').length,list.length),sec:avg(done.map(s=>s.sec).filter(v=>v!=null)),score:avg(done.map(s=>s.score).filter(v=>v!=null))}}
+function spanDays(){const f=$('fFrom').value?toDate($('fFrom').value):M.min,t=$('fTo').value?toDate($('fTo').value):M.max;if(!f||!t)return 0;return Math.max(1,Math.round((t-f)/864e5)+1)}
+
+/* ---------- 概要 ---------- */
+let charts={};
+function mk(id,cfg){charts[id]?.destroy();charts[id]=new Chart($(id),cfg)}
+function baseOpts(){const mu=tok('--muted'),ln=tok('--line');Chart.defaults.font.family=tok('--f-body');
+  return{responsive:true,maintainAspectRatio:false,animation:false,interaction:{mode:'index',intersect:false},
+    plugins:{legend:{labels:{color:mu,boxWidth:10,font:{size:11}}}},
+    scales:{x:{ticks:{color:mu,font:{size:11},maxRotation:0,autoSkip:true},grid:{color:ln,drawTicks:false}},y:{ticks:{color:mu,font:{size:11}},grid:{color:ln},border:{display:false}}}}}
+function renderOverview(){const F=filtered();const days=spanDays();const freq=+$('freq').value||2;
+  const H=hoStats(F.ho);const S=hsStats(F.hs,F.res.length,days,freq);
+  // 前半・後半の比較（導入初期→直近の変化）
+  const sorted=[...F.ho].sort((a,b)=>a.start-b.start);const half=Math.floor(sorted.length/2);
+  const A=hoStats(sorted.slice(0,half)),B=hoStats(sorted.slice(half));
+  const tiles=[
+    {c:'--ho',k:'申し送り（録音）回数',v:f0(H.n),u:'回',d:`延べ ${f0(H.rows)} 件の利用者記録・1回あたり ${f1(H.perHo)} 件`},
+    {c:'--ho',k:'録音開始→確定 平均時間',v:f1(H.avgDur),u:'分',d:`期間前半→後半 ${chg(B.avgDur,A.avgDur,true)}`},
+    {c:'--ho',k:'AI要約の修正率',v:fp(H.corrRate),u:'',d:`前半→後半 ${chg(B.corrRate,A.corrRate,true)}　低いほどAI要約が使える状態`},
+    {c:'--ho',k:'利用者のAI自動識別率',v:fp(H.autoRate),u:'',d:`前半→後半 ${chg(B.autoRate,A.autoRate,false)}`},
+    {c:'--ho',k:'受け取り完了率',v:fp(H.recvRate),u:'',d:`確定から受け取りまで 平均 ${f1(H.lead)} 分`},
+    {c:'--hc',k:'健康チェック実施率',v:fp(S.rate),u:'',d:`想定 週${freq}回・在籍 ${F.res.length} 名で算出（頻度は仮）`},
+    {c:'--hc',k:'健康チェック 途中保存率',v:fp(S.susp),u:'',d:`完了 ${f0(S.done)} 回・平均所要 ${f0(S.sec)} 秒`},
+    {c:'--nu',k:'看護師申し送り',v:f0(F.nu.length),u:'件',d:`うち重要 ${f0(F.nu.filter(n=>n['重要度']==='重要').length)} 件`}];
+  $('kpis').innerHTML=tiles.map(t=>`<div class="kpi" style="--c:var(${t.c})"><span class="k">${t.k}</span><span class="v">${t.v}<small>${t.u}</small></span><span class="d">${t.d}</span></div>`).join('');
+  // ベースライン
+  const mb=measureBase();const btIn=toNum($('blTime').value);const bt=btIn??mb?.v,bw=toNum($('blWrite').value);const parts=[];
+  if(btIn==null&&mb)parts.push(`導入前の値は KPI計測アプリの実測（申し送り時間の中央値 ${f1(mb.v)} 分、n=${mb.n}${$('fSite').value?'・'+$('fSite').value:'・全拠点'}）を使用。同じ定義の比較はKPI計測アプリの「結果を見る」を参照`);
+  if(mb&&mb.v>0&&mb.post!=null)parts.push(`参考：KPI計測アプリの実証期の実測 中央値 ${f1(mb.post)} 分（n=${mb.np}）→ 同じ測り方での短縮率 ${((1-mb.post/mb.v)*100).toFixed(1)}%`);
+  if(btIn!=null&&bt&&H.avgDur!=null)parts.push(`申し送り所要時間：導入前 ${f1(bt)} 分 → 現在 ${f1(H.avgDur)} 分（${((1-H.avgDur/bt)*100).toFixed(1)}% 削減、期間全体で約 ${f0((bt-H.avgDur)*H.n/60)} 時間の差）`);
+  if(bw)parts.push(`導入前の記録作成時間：${f1(bw)}分/回。導入後の同一定義の測定がないため、削減時間は算出しません。`);
+  $('blResult').innerHTML=parts.length?parts.map(esc).join('<br>'):'ベースラインが未入力のため、導入前との比較はしていません。上の数値は導入後の実測だけです。';
+  // 週次推移
+  const wk=new Map();for(const h of F.ho){if(!h.start)continue;const k=weekKey(h.start);if(!wk.has(k))wk.set(k,[]);wk.get(k).push(h)}
+  const keys=[...wk.keys()].sort();const ws=keys.map(k=>hoStats(wk.get(k)));
+  const o=baseOpts();o.scales.y.title={display:true,text:'分',color:tok('--muted'),font:{size:11}};
+  o.scales.y2={position:'right',min:0,max:100,ticks:{color:tok('--muted'),font:{size:11},callback:v=>v+'%'},grid:{display:false},border:{display:false}};
+  o.plugins.tooltip={callbacks:{label:c=>c.datasetIndex===0?`平均時間: ${f1(c.parsed.y)} 分`:`${c.dataset.label}: ${f1(c.parsed.y)}%`}};
+  mk('cTrend',{type:'line',data:{labels:keys.map(k=>k.slice(5)+'週'),datasets:[
+    {label:'録音→確定 平均時間（分）',data:ws.map(s=>s.avgDur),borderColor:tok('--ho'),backgroundColor:tok('--ho')+'22',fill:true,tension:.25,pointRadius:3,borderWidth:2},
+    {label:'AI要約 修正率（%）',data:ws.map(s=>s.corrRate*100),borderColor:tok('--warn'),borderDash:[5,4],tension:.25,pointRadius:2,borderWidth:1.5,yAxisID:'y2'},
+    {label:'自動識別率（%）',data:ws.map(s=>s.autoRate*100),borderColor:tok('--hc'),tension:.25,pointRadius:2,borderWidth:1.5,yAxisID:'y2'}]},options:o});
+  // 拠点別
+  const sites=$('fSite').value?[$('fSite').value]:M.sites;
+  $('siteTable').innerHTML=`<table><thead><tr><th>拠点</th><th class="n">利用者</th><th class="n">申し送り</th><th class="n">平均時間</th><th class="n">修正率</th><th class="n">自動識別</th><th class="n">受け取り完了</th><th class="n">健康チェック実施率</th><th class="n">平均スコア</th></tr></thead><tbody>${
+    sites.map(s=>{const h=hoStats(F.ho.filter(x=>x.site===s));const rc=F.res.filter(r=>r['拠点']===s).length;const k=hsStats(F.hs.filter(x=>x.site===s),rc,days,freq);
+      return `<tr><td>${esc(s)}</td><td class="n">${rc}</td><td class="n">${f0(h.n)}</td><td class="n">${f1(h.avgDur)}分</td><td class="n">${fp(h.corrRate)}</td><td class="n">${fp(h.autoRate)}</td><td class="n">${fp(h.recvRate)}</td><td class="n">${fp(k.rate)}</td><td class="n">${f0(k.score)}</td></tr>`}).join('')}</tbody></table>
+    <p class="note">平均スコアは健康チェック回答を0〜100に換算した値（換算方法は仮）。</p>`;
+  // 7項目
+  const it=[...new Set([...ITEMS,...H.items.keys()])].filter(Boolean);const o2=baseOpts();o2.indexAxis='y';o2.plugins.legend.display=false;
+  o2.scales={x:{ticks:{color:tok('--muted'),font:{size:11}},grid:{color:tok('--line')}},y:{ticks:{color:tok('--fg'),font:{size:12}},grid:{display:false}}};
+  mk('cItems',{type:'bar',data:{labels:it,datasets:[{data:it.map(i=>H.items.get(i)||0),backgroundColor:it.map(i=>ITEMS.includes(i)?tok('--ho'):tok('--warn')),borderRadius:3}]},options:o2});
+  // 設問
+  const qs=new Map();for(const s of F.hs)for(const r of s.rows){const q=r['設問ID'];if(!qs.has(q))qs.set(q,{label:r['設問']||q,c:[0,0,0]});const sc=toNum(r['回答スコア']);if(sc!=null)qs.get(q).c[2-Math.max(0,Math.min(2,sc))]++}
+  const qk=[...qs.keys()].sort();const o3=baseOpts();o3.indexAxis='y';o3.scales={x:{stacked:true,max:100,ticks:{color:tok('--muted'),callback:v=>v+'%'},grid:{color:tok('--line')}},y:{stacked:true,ticks:{color:tok('--fg'),font:{size:11},callback:function(v){const l=this.getLabelForValue(v);return l.length>12?l.slice(0,12)+'…':l}},grid:{display:false}}};
+  o3.plugins.tooltip={callbacks:{label:c=>`${c.dataset.label}: ${f1(c.parsed.x)}%`}};
+  const tot=q=>qs.get(q).c.reduce((a,b)=>a+b,0)||1;
+  mk('cQs',{type:'bar',data:{labels:qk.map(q=>qs.get(q).label),datasets:[['良好',0,'--hc'],['やや気になる',1,'--warn'],['要確認',2,'--bad']].map(([l,i,c])=>({label:l,data:qk.map(q=>qs.get(q).c[i]/tot(q)*100),backgroundColor:tok(c)}))},options:o3});
+  renderAlerts(F)}
+function alertsFor(F){const out=[];const now=$('fTo').value?toDate($('fTo').value):M.max;if(!now)return out;
+  for(const r of F.res){const id=r['利用者ID'];const ss=F.hs.filter(s=>s.res===id&&s.state==='完了'&&s.score!=null).sort((a,b)=>a.at-b.at);
+    const why=[];if(ss.length>=4){const all=avg(ss.map(s=>s.score)),last=avg(ss.slice(-2).map(s=>s.score));if(all-last>=15)why.push(['bad',`健康スコア低下 ${f0(all)}→${f0(last)}`])}
+    const lastHs=ss.at(-1);const gap=lastHs?Math.floor((now-lastHs.at)/864e5):null;if(gap==null||gap>=10)why.push(['warn',gap==null?'健康チェック記録なし':`健康チェック未実施 ${gap}日`]);
+    const imp=F.nu.filter(n=>n['利用者ID']===id&&n['重要度']==='重要'&&(now-n.at)/864e5<=3);if(imp.length)why.push(['nu',`看護師の重要申し送り ${imp.length}件`]);
+    if(why.length)out.push({id,name:r['氏名'],site:r['拠点'],why,sev:why.some(w=>w[0]==='bad')?0:why.some(w=>w[0]==='nu')?1:2})}
+  return out.sort((a,b)=>a.sev-b.sev)}
+function renderAlerts(F){const al=alertsFor(F);
+  $('alerts').innerHTML=al.length?al.slice(0,12).map(a=>`<li data-res="${esc(a.id)}" tabindex="0"><span class="mono">${esc(a.id)}</span><span><b>${esc(a.name)}</b>　<span class="sub">${esc(a.site)}</span><br>${a.why.map(w=>`<span class="tag ${w[0]}">${esc(w[1])}</span>`).join(' ')}</span><span class="sub">開く ›</span></li>`).join('')+(al.length>12?`<p class="note">ほか ${al.length-12} 名</p>`:''):'<li style="cursor:default"><span></span><span>該当する利用者はいません。</span><span></span></li>';
+  $('alerts').querySelectorAll('[data-res]').forEach(li=>{const go=()=>{curRes=li.dataset.res;setTab('residents')};li.onclick=go;li.onkeydown=e=>{if(e.key==='Enter')go()}})}
+
+/* ---------- 利用者 ---------- */
+let curRes=null;
+function renderResidents(){const F=filtered();const q=$('resSearch').value.trim();const al=new Map(alertsFor(F).map(a=>[a.id,a]));
+  const list=F.res.filter(r=>!q||String(r['利用者ID']||'').includes(q)||(r['氏名']||'').includes(q));
+  if(!curRes||!list.find(r=>(r['利用者ID']||r['マスタ参照'])===curRes))curRes=((list.find(r=>al.has(r['利用者ID']))||list[0]||{})['利用者ID']||(list[0]||{})['マスタ参照'])||null;
+  $('resList').innerHTML=list.map(r=>{const a=al.get(r['利用者ID']);return `<button type="button" data-id="${esc(r['利用者ID']||r['マスタ参照'])}" aria-current="${(r['利用者ID']||r['マスタ参照'])===curRes}"><span><span class="nm">${esc(r['氏名'])}</span><br><span class="mt mono">${esc(r['利用者ID']||'ID未設定')}・${esc(r['拠点'])}</span></span>${a?`<span class="tag ${a.why[0][0]}">${a.why.length}</span>`:''}</button>`}).join('')||'<p class="note">該当なし</p>';
+  $('resList').querySelectorAll('[data-id]').forEach(b=>b.onclick=()=>{curRes=b.dataset.id;renderResidents()});
+  const r=M.res.get(curRes);if(!r){$('resDetail').innerHTML='<div class="box empty">利用者マスタがありません。</div>';return}
+  const ho=[];for(const h of F.ho)for(const row of h.rows)if(row['利用者ID']===curRes)ho.push({h,row});
+  const hs=F.hs.filter(s=>s.res===curRes).sort((a,b)=>a.at-b.at);const nu=F.nu.filter(n=>n['利用者ID']===curRes);
+  const done=hs.filter(s=>s.state==='完了'&&s.score!=null);const a=al.get(curRes);
+  const sname=id=>M.staff.get(id)?.['氏名']||id||'—';
+  const tl=[...ho.map(({h,row})=>({at:h.fix||h.start,c:'--ho',tag:['ho','申し送り'],title:row['項目'],body:row['要約'],meta:`${sname(h.by)} → ${sname(h.to)}${row['AI要約修正']==='修正あり'?'・要約修正あり':''}${row['利用者識別']&&row['利用者識別']!=='AI自動'?'・識別:'+row['利用者識別']:''}`})),
+    ...hs.map(s=>({at:s.at,c:'--hc',tag:['hc','健康チェック'],title:s.state==='完了'?`スコア ${f0(s.score)}`:'途中保存',body:s.rows.filter(x=>toNum(x['回答スコア'])!=null&&toNum(x['回答スコア'])<2).map(x=>`${x['設問']||x['設問ID']}：${x['回答']}`).join('／')||'気になる回答なし',meta:`${s.auth||''}${s.rows[0]?.['実施職員ID']?'・補助 '+sname(s.rows[0]['実施職員ID']):''}`})),
+    ...nu.map(n=>({at:n.at,c:'--nu',tag:[n['重要度']==='重要'?'bad':'nu',n['重要度']==='重要'?'看護・重要':'看護'],title:'',body:n['内容'],meta:`${sname(n['看護師ID'])} → ${sname(n['受け手看護師ID'])}`}))].filter(x=>x.at).sort((x,y)=>y.at-x.at);
+  $('resDetail').innerHTML=`<div class="box"><div class="profile"><span class="big">${esc(r['氏名'])}</span><span class="mono">${esc(r['利用者ID'])}</span><span>${esc(r['拠点'])}</span>${r['要介護度']?`<span>${esc(r['要介護度'])}</span>`:''}${r['居室']?`<span>居室 ${esc(r['居室'])}</span>`:''}</div>
+    ${a?`<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">${a.why.map(w=>`<span class="tag ${w[0]}">${esc(w[1])}</span>`).join('')}</div>`:''}
+    <div class="stats"><div class="stat"><div class="k">申し送り記録</div><div class="v">${ho.length}</div></div><div class="stat"><div class="k">健康チェック</div><div class="v">${done.length}<small class="sub"> / ${hs.length}</small></div></div>
+    <div class="stat"><div class="k">平均スコア</div><div class="v">${f0(avg(done.map(s=>s.score)))}</div></div><div class="stat"><div class="k">看護師申し送り</div><div class="v">${nu.length}</div></div>
+    <div class="stat"><div class="k">最終チェック</div><div class="v" style="font-size:14px">${done.at(-1)?ymd(done.at(-1).at):'—'}</div></div></div></div>
+    <div class="g3"><div class="box"><h2>健康スコアの推移 <span class="sub">0〜100（換算は仮）</span></h2><div class="chartbox" style="height:220px"><canvas id="cRes"></canvas></div></div>
+    <div class="box"><h2>申し送り 項目別</h2><div class="scroll">${(()=>{const m=new Map();ho.forEach(({row})=>m.set(row['項目'],(m.get(row['項目'])||0)+1));const mx=Math.max(1,...m.values());
+      return `<table><tbody>${ITEMS.map(i=>`<tr><td>${esc(i)}</td><td style="width:55%"><div style="height:8px;border-radius:4px;background:var(--soft)"><div style="height:8px;border-radius:4px;background:var(--ho);width:${(m.get(i)||0)/mx*100}%"></div></div></td><td class="n">${m.get(i)||0}</td></tr>`).join('')}</tbody></table>`})()}</div></div></div>
+    <div class="box"><h2>統合タイムライン <span class="sub">新しい順・最新60件</span></h2><ul class="tl">${tl.slice(0,60).map(x=>`<li style="--c:var(${x.c})"><span class="t">${esc(ymdhm(x.at).slice(5))}</span><span class="dot"></span><div class="body"><span class="tag ${x.tag[0]}">${x.tag[1]}</span> <b>${esc(x.title)}</b><p>${esc(x.body)}</p><span class="sub">${esc(x.meta)}</span></div></li>`).join('')||'<li><span></span><span></span><span class="sub">記録がありません</span></li>'}</ul></div>`;
+  const o=baseOpts();o.plugins.legend.display=false;o.scales.y.min=0;o.scales.y.max=100;
+  mk('cRes',{type:'line',data:{labels:done.map(s=>ymd(s.at).slice(5)),datasets:[{data:done.map(s=>s.score),borderColor:tok('--hc'),backgroundColor:tok('--hc')+'22',fill:true,tension:.3,pointRadius:3}]},options:o})}
+$('resSearch').addEventListener('input',renderResidents);
+
+/* ---------- データ画面 ---------- */
+function renderData(){
+  $('srcs').innerHTML=TYPES.map(t=>{const s=SCHEMAS[t],d=D[t];const f=d.rows.length?Object.keys(d.rows[0]):[];
+    const miss=s.cols.filter(c=>c[1]==='必須'&&!f.includes(c[0])).map(c=>c[0]);
+    return `<div class="src" style="--c:var(${s.c})"><div class="t"><span>${s.label}</span>${d.rows.length?(miss.length?'<span class="tag bad">必須列不足</span>':'<span class="tag ok">形式OK</span>'):'<span class="tag mute">未取込</span>'}</div>
+    <div class="m"><span class="mono">${d.rows.length.toLocaleString()}</span> 行・${esc(d.files.join('、')||'—')}</div>${miss.length&&d.rows.length?`<div class="m" style="color:var(--bad)">不足：${esc(miss.join('、'))}</div>`:''}</div>`}).join('');
+  // 品質
+  const rid=new Set(M.res.keys()),sid=new Set(M.staff.keys());const rows=[];
+  const chk=(label,arr,col,set)=>{const v=arr.map(r=>r[col]).filter(x=>x!=null&&x!=='');const ok=v.filter(x=>set.has(x)).length;rows.push([label,col,v.length,ok,arr.length-v.length])};
+  chk('申し送り',D.handover.rows,'利用者ID',rid);chk('申し送り',D.handover.rows,'申し送り者ID',sid);chk('申し送り',D.handover.rows,'受け手ID',sid);
+  chk('健康チェック',D.health.rows,'利用者ID',rid);chk('看護師申し送り',D.nurse.rows,'利用者ID',rid);chk('看護師申し送り',D.nurse.rows,'看護師ID',sid);
+  const unknownItems=D.handover.rows.filter(r=>r['項目']&&![...ITEMS,'その他'].includes(r['項目'])).length;
+  const unid=D.handover.rows.filter(r=>r['利用者識別']==='未識別'||!r['利用者ID']).length;
+  const timeNg=M.ho.filter(h=>h.start&&h.fix&&h.fix<h.start).length;
+  const dupKey=(arr,keys)=>{const s=new Set();let n=0;for(const r of arr){const k=keys.map(c=>r[c]).join('|');if(s.has(k))n++;else s.add(k)}return n};
+  $('quality').innerHTML=`<table><thead><tr><th>CSV</th><th>結合キー</th><th class="n">値あり</th><th class="n">マスタ一致</th><th class="n">一致率</th><th class="n">空欄</th></tr></thead><tbody>${
+    rows.map(([l,c,n,ok,miss])=>{const p=n?ok/n:null;return `<tr><td>${l}</td><td>${c}</td><td class="n">${n.toLocaleString()}</td><td class="n">${ok.toLocaleString()}</td><td class="n"><span class="tag ${p==null?'mute':p>=.99?'ok':p>=.95?'warn':'bad'}">${fp(p)}</span></td><td class="n">${miss.toLocaleString()}</td></tr>`}).join('')}</tbody></table>
+    <ul class="note" style="padding-left:18px"><li>申し送り：7項目（仮）以外の項目名 <b>${unknownItems}</b> 件／利用者が未識別 <b>${unid}</b> 件／確定日時が録音開始より前 <b>${timeNg}</b> 件</li>
+    <li>重複：申し送り（ID×利用者×項目） <b>${dupKey(D.handover.rows,['申し送りID','利用者ID','項目'])}</b> 件／健康チェック（実施ID×設問） <b>${dupKey(D.health.rows,['実施ID','設問ID'])}</b> 件</li></ul>`;
+  // 定義
+  const ds=$('defSel').value||'handover';const s=SCHEMAS[ds];$('defNote').innerHTML=s.note;
+  $('defTable').innerHTML=`<table><thead><tr><th>列名</th><th>区分</th><th>内容</th></tr></thead><tbody>${s.cols.map(c=>`<tr><td><b>${esc(c[0])}</b></td><td><span class="tag ${c[1]==='必須'?'ho':'mute'}">${c[1]}</span></td><td>${esc(c[2])}</td></tr>`).join('')}</tbody></table>`;
+  // プレビュー
+  const pt=$('pvSel').value||'handover';const q=$('pvSearch').value.trim();const all=D[pt].rows;const cols=all.length?Object.keys(all[0]):[];
+  const hit=q?all.filter(r=>cols.some(c=>String(r[c]??'').includes(q))):all;
+  $('pvTitle').textContent=`データプレビュー（${hit.length.toLocaleString()}行${hit.length>200?'・先頭200行':''}）`;
+  $('preview').innerHTML=cols.length?`<table><thead><tr>${cols.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${hit.slice(0,200).map(r=>`<tr>${cols.map(c=>`<td>${esc(r[c])}</td>`).join('')}</tr>`).join('')}</tbody></table>`:'<div class="empty">データがありません</div>'}
+$('defSel').innerHTML=TYPES.map(t=>`<option value="${t}">${SCHEMAS[t].label}</option>`).join('');
+$('pvSel').innerHTML=$('defSel').innerHTML;
+$('defSel').onchange=renderData;$('pvSel').onchange=renderData;$('pvSearch').addEventListener('input',renderData);
+$('copyHeader').onclick=()=>{const s=SCHEMAS[$('defSel').value];copy(s.cols.map(c=>c[0]).join(','),`${s.label}の見出し行をコピーしました`)};
+function timelineRows(){const F=filtered();const nm=id=>M.res.get(id)?.['氏名']||'';const out=[];
+  for(const h of F.ho)for(const r of h.rows)out.push([ymdhm(h.fix||h.start),'申し送り',h.site,r['利用者ID'],nm(r['利用者ID']),r['項目'],r['要約'],h.by]);
+  for(const s of F.hs)out.push([ymdhm(s.at),'健康チェック',s.site,s.res,nm(s.res),s.state,s.score==null?'':Math.round(s.score),s.rows[0]?.['実施職員ID']||'']);
+  for(const n of F.nu)out.push([ymdhm(n.at),'看護師申し送り',n['拠点'],n['利用者ID'],nm(n['利用者ID']),n['重要度'],n['内容'],n['看護師ID']]);
+  return out.sort((a,b)=>a[0]<b[0]?-1:1)}
+$('copyTimeline').onclick=()=>{const r=timelineRows();copy(Papa.unparse([['日時','種別','拠点','利用者ID','氏名','項目・状態','内容・スコア','記録者ID'],...r]),`統合タイムライン ${r.length.toLocaleString()} 行をコピーしました`)};
+$('copyDaily').onclick=()=>{const F=filtered();const m=new Map();const get=(id,d)=>{const k=id+'|'+d;if(!m.has(k))m.set(k,{id,d,ho:0,hs:0,sc:[],nu:0,imp:0});return m.get(k)};
+  for(const h of F.ho)for(const r of h.rows)get(r['利用者ID'],ymd(h.start)).ho++;
+  for(const s of F.hs){const g=get(s.res,ymd(s.at));g.hs++;if(s.score!=null)g.sc.push(s.score)}
+  for(const n of F.nu){const g=get(n['利用者ID'],ymd(n.at));g.nu++;if(n['重要度']==='重要')g.imp++}
+  const rows=[...m.values()].sort((a,b)=>a.d<b.d?-1:a.d>b.d?1:a.id<b.id?-1:1).map(g=>[g.d,g.id,M.res.get(g.id)?.['拠点']||'',g.ho,g.hs,g.sc.length?Math.round(avg(g.sc)):'',g.nu,g.imp]);
+  copy(Papa.unparse([['日付','利用者ID','拠点','申し送り件数','健康チェック回数','健康スコア','看護師申し送り','うち重要'],...rows]),`利用者×日 ${rows.length.toLocaleString()} 行をコピーしました`)};
+
+/* ---------- 画面切替・再描画 ---------- */
+let tab='overview';
+function setTab(t){tab=t;document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===t));
+  ['overview','residents','measure','data'].forEach(x=>$('tab-'+x).hidden=x!==t);render()}
+document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
+function render(){if(tab==='overview')renderOverview();else if(tab==='residents')renderResidents();else if(tab==='measure')renderMeasure();else renderData()}
+function rebuild(){build();const cur=$('fSite').value;$('fSite').innerHTML='<option value="">全拠点</option>'+M.sites.map(s=>`<option ${s===cur?'selected':''}>${esc(s)}</option>`).join('');
+  if(M.min){$('fFrom').value=ymd(M.min);$('fTo').value=ymd(M.max)}
+  const b=$('dataBadge');b.className='badge '+(isSample?'sample':'real');b.textContent=isSample?'● 架空のサンプルデータ（一部または全部）':'● 取り込んだCSVを表示中';render()}
+['fSite','fFrom','fTo','freq','blTime','blWrite'].forEach(id=>$(id).addEventListener('change',render));
+matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',render);
+new MutationObserver(render).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+
+
+/* ---------- 実証KPI（KPI計測アプリ連携） ---------- */
+let lastImport=[];const APP_KEY='kebbi-kpi-export-v1';
+function mergeMeasure(rows){const slot=D.measure;const have=new Set(slot.rows.map(r=>r['レコードID']));let n=0,dup=0,ex=0;
+  for(const r of rows){for(const k in r)if(typeof r[k]==='string')r[k]=r[k].trim();const id=r['レコードID'];
+    if(/^EX\d+$/.test(id||'')){ex++;continue}if(r['計測種別']==='Kebbi利用（日次）'){continue}
+    if(id&&have.has(id)){dup++;continue}if(id)have.add(id);slot.rows.push(r);n++}return{n,dup,ex}}
+function loadFromApp(silent){let j=null;try{j=JSON.parse(localStorage.getItem(APP_KEY)||'null')}catch(e){}
+  if(!j||!j.csv){if(!silent)toast('この端末にKPI計測アプリの記録が見つかりません。計測CSVをアップロードしてください');return false}
+  const r=Papa.parse(j.csv.replace(/^﻿/,''),{header:true,skipEmptyLines:'greedy',transformHeader:h=>h.trim()});
+  const add=mergeMeasure(r.data);const label=`KPI計測アプリ（${j.device||'この端末'}）`;if(!D.measure.files.includes(label))D.measure.files.push(label);
+  lastImport=[`${label}：${add.n}件追加${add.dup?`、${add.dup}件は取込済み`:''}`];rebuild();if(!silent)toast(lastImport[0]);return true}
+const mNum=v=>toNum(v);
+const med=a=>{const b=a.filter(v=>v!=null&&isFinite(v)).sort((x,y)=>x-y);if(!b.length)return null;const m=Math.floor(b.length/2);return b.length%2?b[m]:(b[m-1]+b[m])/2};
+const sumOf=(rows,c)=>rows.reduce((s,r)=>s+(mNum(r[c])||0),0);
+const rt=(a,b)=>b?a/b:null;
+function mStats(){const site=$('fSite').value;const all=D.measure.rows.filter(r=>!site||r['拠点']===site);const by=(t,p)=>all.filter(r=>r['計測種別']===t&&(!p||r['測定期']===p));
+  const out={};for(const[p,k]of[['導入前','pre'],['実証','post']]){const h=by('申し送り時間',p),c=by('受け手確認',p),s=by('職員アンケート',p);const cf=c.filter(r=>r['受け手役割']==='外国人職員');
+    out[k]={nH:h.length,min:med(h.map(r=>mNum(r['所要分']))),per:med(h.map(r=>{const m=mNum(r['所要分']),n=mNum(r['対象利用者数']);return m!=null&&n?m*60/n:null})),
+      re:avg(h.map(r=>mNum(r['聞き直し回数'])).filter(v=>v!=null)),leak:rt(sumOf(h,'伝達漏れ数'),sumOf(h,'重要事項数')),
+      nC:c.length,find:med(c.map(r=>mNum(r['情報把握分']))),srch:avg(c.map(r=>mNum(r['職員を探した回数'])).filter(v=>v!=null)),grasp:rt(sumOf(c,'正答数'),sumOf(c,'確認問題数')),
+      nF:cf.length,graspF:rt(sumOf(cf,'正答数'),sumOf(cf,'確認問題数')),
+      nS:s.length,burden:avg(s.map(r=>avg([1,2,3,4].map(i=>mNum(r['負担感'+i])).filter(v=>v!=null))).filter(v=>v!=null)),
+      sus:avg(s.map(r=>mNum(r['SUSスコア'])).filter(v=>v!=null)),nSus:s.filter(r=>mNum(r['SUSスコア'])!=null).length}}
+  out.ai={};for(const m of['東大MedLLM','gpt-oss-120b']){const a=by('AI精度').filter(r=>r['モデル']===m);const tp=sumOf(a,'タグ正解数'),fp_=sumOf(a,'タグ誤付与数'),fn=sumOf(a,'タグ漏れ数');const pr=rt(tp,tp+fp_),rc=rt(tp,tp+fn);
+    out.ai[m]={n:a.length,id:rt(sumOf(a,'識別正解数'),sumOf(a,'識別対象数')),term:rt(sumOf(a,'登録用語正解数'),sumOf(a,'登録用語数')),f1:(2*tp+fp_+fn)>0?2*tp/(2*tp+fp_+fn):null,
+      err:rt(sumOf(a,'事実誤り数')+sumOf(a,'根拠なし追加数')+sumOf(a,'欠落数'),sumOf(a,'要約文数')),edit:rt(sumOf(a,'訂正成功数'),sumOf(a,'訂正試行数')),lat:med(a.map(r=>mNum(r['AI処理秒数'])))}}
+  out.devices=[...new Set(all.map(r=>r['端末']||'（端末名なし）'))];out.total=all.length;return out}
+function renderMeasure(){const n=D.measure.rows.length;let has=false;try{has=!!localStorage.getItem(APP_KEY)}catch(e){}
+  $('mLinkState').textContent=n?`計測 ${n.toLocaleString()}件を取込済み`:'未取込';$('mLoadApp').hidden=false;
+  $('mMsg').textContent=lastImport.join('　');
+  if(!n){['mTiles','mEffect','mAI'].forEach(id=>$(id).innerHTML='');$('mEffect').innerHTML='<p class="note">KPI計測アプリの「計測CSVを保存」で出力したファイルをアップロードしてください。</p>';$('mSrc').innerHTML='';return}
+  const S=mStats(),p=S.pre,q=S.post;const nt=(a,b)=>`<span class="tag ${a>=10&&b>=10?'ok':a||b?'warn':'mute'}">n=${a}/${b}</span>`;
+  const tiles=[['申し送り1回の所要時間',f1(q.min),'分',`導入前 ${f1(p.min)}分 ${chg(q.min,p.min,true)}`],['引継ぎ把握率',fp(q.grasp),'',`導入前 ${fp(p.grasp)} ${chg(q.grasp,p.grasp,false)}`],
+    ['重要事項の伝達漏れ率',fp(q.leak),'',`導入前 ${fp(p.leak)} ${chg(q.leak,p.leak,true)}`],['後から来た職員の把握時間',f1(q.find),'分',`導入前 ${f1(p.find)}分 ${chg(q.find,p.find,true)}`]];
+  $('mTiles').innerHTML=tiles.map(t=>`<div class="kpi" style="--c:var(--ho)"><span class="k">${t[0]}</span><span class="v">${t[1]}<small>${t[2]}</small></span><span class="d">${t[3]}</span></div>`).join('');
+  const row=(l,a,b,fmt,down,na,nb)=>`<tr><td>${l}</td><td class="n">${fmt(a)}</td><td class="n">${fmt(b)}</td><td class="n">${chg(b,a,down)}</td><td class="n">${nt(na,nb)}</td></tr>`;
+  $('mEffect').innerHTML=`<table><thead><tr><th>指標</th><th class="n">導入前</th><th class="n">実証</th><th class="n">変化</th><th class="n">件数</th></tr></thead><tbody>
+    ${row('申し送り1回の所要時間（分）',p.min,q.min,f1,true,p.nH,q.nH)}${row('利用者1人あたり（秒）',p.per,q.per,f0,true,p.nH,q.nH)}${row('聞き直し回数（平均）',p.re,q.re,f1,true,p.nH,q.nH)}
+    ${row('重要事項の伝達漏れ率',p.leak,q.leak,fp,true,p.nH,q.nH)}${row('後から来た職員の把握時間（分）',p.find,q.find,f1,true,p.nC,q.nC)}${row('職員を探した回数（平均）',p.srch,q.srch,f1,true,p.nC,q.nC)}
+    ${row('引継ぎ把握率',p.grasp,q.grasp,fp,false,p.nC,q.nC)}${row('　うち外国人職員',p.graspF,q.graspF,fp,false,p.nF,q.nF)}${row('負担感（1〜5、低いほど良い）',p.burden,q.burden,f1,true,p.nS,q.nS)}
+    </tbody></table><p class="note">使いやすさ（SUS）：${f1(q.sus)}（${q.nSus}人）。拠点の絞り込みは上部の「拠点」で切り替わります。期間の絞り込みは計測データには適用しません（導入前・実証の区分で比較するため）。</p>`;
+  const A=S.ai,a0=A['東大MedLLM'],a1=A['gpt-oss-120b'];const ar=(l,k,fmt)=>`<tr><td>${l}</td><td class="n">${fmt(a0[k])}</td><td class="n">${fmt(a1[k])}</td></tr>`;
+  $('mAI').innerHTML=`<table><thead><tr><th>指標</th><th class="n">国産（東大）</th><th class="n">比較（gpt-oss）</th></tr></thead><tbody>
+    <tr><td>採点した記録</td><td class="n">${a0.n}件</td><td class="n">${a1.n}件</td></tr>${ar('利用者識別の正解率','id',fp)}${ar('登録用語の正しい表記率','term',fp)}${ar('7項目分類 F1','f1',fp)}${ar('要約の誤り率','err',fp)}${ar('部分訂正の成功率','edit',fp)}${ar('AI処理時間 中央値（秒）','lat',f1)}</tbody></table>`;
+  const byType={};D.measure.rows.forEach(r=>{const k=r['計測種別'];byType[k]=(byType[k]||0)+1});
+  $('mSrc').innerHTML=`<table><tbody>${Object.entries(byType).map(([k,v])=>`<tr><td>${esc(k)}</td><td class="n">${v.toLocaleString()}件</td></tr>`).join('')}<tr><td>入力した端末</td><td>${S.devices.map(esc).join('、')}</td></tr><tr><td>読み込んだファイル</td><td>${D.measure.files.map(esc).join('、')}</td></tr></tbody></table>`}
+$('mFile').addEventListener('change',e=>{handleFiles(e.target.files);e.target.value=''});
+$('mLoadApp').onclick=()=>loadFromApp(false);
+$('mClear').onclick=()=>{if(confirm('管理画面の計測データを外します。測定アプリ側は残ります。よろしいですか？')){D.measure.rows=[];D.measure.files=[];lastImport=[];persistManager();rebuild();toast('計測データを外しました')}};
+window.addEventListener('storage',e=>{if(e.key===APP_KEY)loadFromApp(true)});
+
+/* ---------- サンプル（架空） ---------- */
+function makeSample(){let seed=11;const rnd=()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296};
+  const pick=a=>a[Math.floor(rnd()*a.length)];
+  const SITES=['拠点A（仮）','拠点B（仮）','拠点C（仮）'];const FAM='佐藤 鈴木 高橋 田中 伊藤 渡辺 山本 中村 小林 加藤 吉田 山田 佐々木 山口 松本 井上 木村 林 清水 森'.split(' ');
+  const GIV='ハナ トメ キヨ フミ 和子 正子 茂 清 実 勇 昭 節子 静江 久子 博 弘'.split(' ');const LV=['要介護1','要介護2','要介護3','要介護4','要介護5'];
+  const res=[],staff=[];
+  SITES.forEach((s,si)=>{for(let i=1;i<=20;i++)res.push({利用者ID:`R${si+1}${pad(i)}`,氏名:`${pick(FAM)} ${pick(GIV)}`,拠点:s,要介護度:pick(LV),居室:`${100*(si+1)+i}`});
+    for(let i=1;i<=8;i++)staff.push({職員ID:`S${si+1}${pad(i)}`,氏名:`${pick(FAM)}（${i<=6?'介護':'看護'}）`,職種:i<=6?'介護職':'看護師',拠点:s})});
+  const SUM={食事量:['朝食は主食8割、副食全量摂取','昼食は半量。むせ込みなし','水分摂取が少なめ（600ml程度）'],排尿:['夜間トイレ誘導2回、失禁なし','パッド交換時に少量の失禁あり'],排便:['排便3日なし。様子見','朝食後に普通便あり'],
+    睡眠:['夜間良眠','2時ごろ覚醒し30分ほど起きていた','日中の傾眠が多い'],服薬:['朝・昼の服薬確認済み','夕食後薬の拒否あり、再度声かけで服用'],
+    体調変化:['体温36.5度、血圧安定','体温37.2度。夕方に再測定予定','咳が少し出ている','右前腕に内出血、原因不明。看護師へ報告済み'],
+    不穏行動:['帰宅願望の訴えあり。傾聴で落ち着いた','夕方に落ち着かず廊下を歩き回る','夜間に大声あり、5分ほどで落ち着いた']};
+  const ho=[],hs=[],nu=[];let hid=1,cid=1,nid=1;const start=new Date(2026,8,1);const DAYS=53;
+  const decline=new Set(['R105','R212','R307']);const lowfreq=new Set(['R118','R220']);
+  for(let d=0;d<DAYS;d++){const day=new Date(start);day.setDate(start.getDate()+d);const learn=d/DAYS;
+    SITES.forEach((s,si)=>{const rs=res.filter(r=>r.拠点===s),st=staff.filter(x=>x.拠点===s&&x.職種==='介護職'),ns=staff.filter(x=>x.拠点===s&&x.職種==='看護師');
+      [[8,30],[16,45]].forEach(([hh,mm])=>{const id=`H${String(hid++).padStart(5,'0')}`;const t0=new Date(day);t0.setHours(hh,mm+Math.floor(rnd()*10));
+        const dur=Math.max(4,(17-8*learn-si*1.2)+(rnd()-.5)*5);const fix=new Date(t0.getTime()+dur*60000);const by=pick(st),to=pick(st.filter(x=>x!==by));
+        const recv=rnd()<.9+learn*.07?new Date(fix.getTime()+(5+rnd()*40)*60000):null;const corr=rnd()<(.42-.25*learn)?'修正あり':'修正なし';
+        const n=5+Math.floor(rnd()*6);const chosen=[...rs].sort(()=>rnd()-.5).slice(0,n);
+        for(const r of chosen){const k=1+(rnd()<.3?1:0);const its=[...ITEMS].sort(()=>rnd()-.5).slice(0,k);
+          for(const it of its){const idr=rnd();ho.push({申し送りID:id,拠点:s,録音開始:ymdhm(t0),録音秒数:Math.round(dur*60*(.35+rnd()*.2)),確定日時:ymdhm(fix),申し送り者ID:by.職員ID,
+            利用者ID:idr<.02?'':r.利用者ID,利用者識別:idr<.02?'未識別':idr<(.2-.12*learn)?'手動修正':'AI自動',項目:it,要約:pick(SUM[it]),AI要約修正:corr,受け手ID:to.職員ID,受け取り日時:recv?ymdhm(recv):''})}}});
+      for(const r of rs){const p=lowfreq.has(r.利用者ID)&&d>25?0:2/7;if(rnd()>=p)continue;const id=`C${String(cid++).padStart(5,'0')}`;const t=new Date(day);t.setHours(10+Math.floor(rnd()*5),Math.floor(rnd()*60));
+        const auth=rnd()<.7?'顔認証':rnd()<.6?'利用者ID':'職員補助';const susp=rnd()<.06;const dec=decline.has(r.利用者ID)&&d>DAYS-12;const helper=auth==='職員補助'?pick(st).職員ID:'';
+        QUESTIONS.forEach(([q,txt],qi)=>{if(susp&&qi>=3)return;const base=dec?.25:.72;const x=rnd();const sc=x<base?2:x<base+.2?1:0;
+          hs.push({実施ID:id,実施日時:ymdhm(t),拠点:s,利用者ID:r.利用者ID,認証方法:auth,実施職員ID:helper,設問ID:q,設問:txt,回答:['いいえ・気になる','少し','はい・良好'][sc],回答スコア:sc,状態:susp?'途中保存':'完了',所要秒数:susp?'':Math.round(70+rnd()*80)})})}
+      const k=1+Math.floor(rnd()*3);for(let i=0;i<k;i++){const r=(rnd()<(d>DAYS-10?.25:.03)?rs.filter(x=>decline.has(x.利用者ID)):[])[0]||pick(rs);const t=new Date(day);t.setHours(9+Math.floor(rnd()*9),Math.floor(rnd()*60));
+        const imp=decline.has(r.利用者ID)&&d>DAYS-8?'重要':rnd()<.12?'重要':'通常';const a=pick(ns),b=pick(ns.filter(x=>x!==a));
+        nu.push({記録ID:`N${String(nid++).padStart(5,'0')}`,日時:ymdhm(t),拠点:s,看護師ID:a.職員ID,受け手看護師ID:b.職員ID,利用者ID:r.利用者ID,重要度:imp,
+          内容:imp==='重要'?pick(['SpO2 93%。主治医へ連絡し経過観察','発熱37.8度。夜間の再測定と水分補給を指示','食事量低下が続く。家族へ連絡予定']):pick(['褥瘡なし、処置継続不要','血糖値安定','内服変更なし'])})}})}
+  D.resident={rows:res,files:['サンプル']};D.staff={rows:staff,files:['サンプル']};D.handover={rows:ho,files:['サンプル']};D.health={rows:hs,files:['サンプル']};D.nurse={rows:nu,files:['サンプル']};
+  isSample=true;$('fSite').value=''}
+
+const K=window.Kebbi,MANAGER_KEY='kebbi-management-v2';
+let managerBroken=false,importIssues=[],appSnapshots={};
+const extraSchemas={term:{label:'呼称・用語登録',key:'マスタ参照',c:'--ct',cols:[['マスタ参照','必須','Excelの行に対応する内部参照'],['画面表示','必須','提供値']],note:'提供された全74用語。条件・注意、読み上げ、認識する言い方を保持します。'},roster:{label:'職員コード一覧（Sheet1）',key:'職員コード',c:'--ct',cols:[['職員コード','必須','提供された職員コード'],['職員名','必須','提供値']],note:'役割付き職員マスターとは別表として保持。名前だけで自動結合しません。'},role:{label:'権限（役割別）',key:'役割名',c:'--ct',cols:[['役割名','必須','提供値']],note:'参照情報です。このアプリ自体の認証・アクセス権限にはなりません。'},setting:{label:'共通設定',key:'項目',c:'--ct',cols:[['項目','必須','提供値']],note:'元Excelの設定を保持します。'}};
+Object.assign(SCHEMAS,extraSchemas);for(const t of Object.keys(extraSchemas)){TYPES.push(t);D[t]={rows:[],files:[]}}
+SCHEMAS.resident.note='利用者20名の原表を保持。正式IDが空欄の行は氏名や行番号で自動結合しません。「登録情報を確認」で正式ID対応を設定できます。';
+SCHEMAS.staff.note='役割付き職員43名を原表のまま保持。未確定ID「S 」と空欄は自動結合対象外です。職員コード一覧47名は別表で保持します。';
+SCHEMAS.handover.note+=' 取込済みの同一行は重複追加しません。同じキーで内容が異なる行は要確認として保留します。';
+const sourceLabel=K.M.sourceFile;
+function seedMaster(){D.resident={rows:K.masterRows('resident'),files:[sourceLabel]};D.staff={rows:K.masterRows('staff'),files:[sourceLabel]};D.term={rows:K.M.terms.map(r=>({...r,'マスタ参照':r._ref})),files:[sourceLabel]};D.roster={rows:structuredClone(K.M.roster),files:[sourceLabel]};D.role={rows:structuredClone(K.M.roles),files:[sourceLabel]};D.setting={rows:structuredClone(K.M.settings),files:[sourceLabel]}}
+function persistManager(){if(managerBroken)return false;return K.write(MANAGER_KEY,{schemaVersion:2,D,importIssues,appSnapshots,filters:{site:$('fSite').value,from:$('fFrom').value,to:$('fTo').value},savedAt:K.stamp()})}
+const keyFields={handover:['拠点','申し送りID','利用者ID','項目'],health:['拠点','実施ID','設問ID'],nurse:['拠点','記録ID'],resident:['利用者ID'],staff:['職員ID'],measure:['レコードID'],term:['マスタ参照'],roster:['職員コード'],role:['役割名'],setting:['項目']};
+function recordKey(type,r){if((type==='resident'||type==='staff')&&!r[keyFields[type][0]])return r['マスタ参照']||r._ref||'';return JSON.stringify(keyFields[type].map(k=>String(r[k]??'')))}
+function cleanContent(r){return Object.fromEntries(Object.entries(r).filter(([k])=>!k.startsWith('_source')&&k!=='_importedAt'&&k!=='_sourceOrigin').map(([k,v])=>[k,v==null?'':String(v)]))}
+function validateCare(type,r){const e=[];const req=SCHEMAS[type].cols.filter(c=>c[1]==='必須').map(c=>c[0]);for(const key of req)if((r[key]==null||String(r[key]).trim()==='')&&!(['resident','staff'].includes(type)&&key===SCHEMAS[type].key&&(r['マスタ参照']||r._ref)))e.push(key+'が空欄');const dateCols={handover:['録音開始','確定日時'],health:['実施日時'],nurse:['日時']}[type]||[];for(const k of dateCols){const d=toDate(r[k]);if(!d||!K.validDate(String(r[k]).slice(0,10).replaceAll('/','-')))e.push(k+'が不正')}if(type==='handover'&&toDate(r['確定日時'])<toDate(r['録音開始']))e.push('確定日時が録音開始より前');if(type==='handover'&&r['受け取り日時']&&toDate(r['受け取り日時'])<toDate(r['確定日時']))e.push('受け取り日時が確定日時より前');if(type==='health'&&r['回答スコア']!==''){const n=K.num(r['回答スコア']);if(n!==null&&(!Number.isFinite(n)||n<0||n>2))e.push('回答スコアは0〜2')}return e}
+function mergeRows(type,rows,source,fromApp=false){const slot=D[type],have=new Map(slot.rows.map(r=>[recordKey(type,r),r]));let n=0,dup=0,updated=0,rejected=0;const issues=[];for(let i=0;i<rows.length;i++){let r={...rows[i]};if(type==='measure')r=K.normalizeMeasure(r);const errors=type==='measure'?K.validateMeasure(r):validateCare(type,r);if(/^EX\d+$/.test(r['レコードID']||''))errors.push('架空の測定例');if(errors.length){rejected++;issues.push({source,row:i+2,type,reason:errors.join('、'),data:r});continue}const key=recordKey(type,r),old=have.get(key);if(old){if(K.stable(cleanContent(old))===K.stable(cleanContent(r))){dup++;continue}if(fromApp&&old._sourceOrigin===source&&String(r['更新日時']||'')>String(old['更新日時']||'')){Object.assign(old,r,{_sourceOrigin:source,_importedAt:K.stamp()});updated++;continue}rejected++;issues.push({source,row:i+2,type,reason:'同じキーの内容が既存データと異なります。既存を保持',data:r});continue}r._sourceFile=source;r._sourceRow=i+2;r._importedAt=K.stamp();if(fromApp)r._sourceOrigin=source;slot.rows.push(r);have.set(key,r);n++}if((n||updated)&&!slot.files.includes(source))slot.files.push(source);importIssues.push(...issues);return {n,dup,updated,rejected,issues}}
+mergeMeasure=function(rows){return mergeRows('measure',rows,'計測CSV')};
+detect=function(fields){if(fields.includes('record_type')&&fields.includes('payload_json')&&fields.includes('schema_version'))return {t:'integrated',hit:1};if(fields.includes('計測種別')&&fields.includes('レコードID'))return {t:'measure',hit:1};for(const t of TYPES.filter(t=>t!=='measure')){const req=SCHEMAS[t].cols.filter(c=>c[1]==='必須').map(c=>c[0]);if(req.every(c=>fields.includes(c)))return {t,hit:1}}return null};
+handleFiles=async function(list){if(managerBroken){alert('保存データの読み込みエラーがあります。先にバックアップ復元を行ってください');return}const before=structuredClone(D),beforeIssues=importIssues.slice(),messages=[];for(const f of list){try{const p=await K.parseFile(f);if(!p.rows)throw Error('CSVファイルを選択してください');const det=detect(p.fields);if(!det)throw Error('必須列が不足しています。「CSV定義」で見出しを確認してください');if(det.t==='integrated'){const grouped={};for(const r of p.rows){if(r.schema_version!=='2.0'||!TYPES.includes(r.record_type))throw Error('統合CSVの版または種別が不正');if(r.export_profile!=='full')throw Error('AI分析用CSVは復元用ではありません。全項目の統合CSVを使用してください');const payload=JSON.parse(r.payload_json);(grouped[r.record_type]||=[]).push(payload)}for(const[t,rs]of Object.entries(grouped)){const m=mergeRows(t,rs,f.name);messages.push(`${f.name}／${SCHEMAS[t].label}：追加${m.n}・重複${m.dup}・要確認${m.rejected}`)}}else{const m=mergeRows(det.t,p.rows,f.name);messages.push(`${f.name}：追加${m.n}件・重複${m.dup}件・要確認${m.rejected}件`)}}catch(e){messages.push(`${f.name}：取込中止（${e.message}）`)}}
+  lastImport=messages;isSample=false;if(!persistManager()){Object.keys(before).forEach(t=>D[t]=before[t]);importIssues=beforeIssues;lastImport=['保存に失敗したため取込を取り消しました']}rebuild();showLog();toast('取り込み結果を確認してください')};
+loadFromApp=function(silent){if(managerBroken)return false;let j;try{j=K.read(APP_KEY,null)}catch(e){if(!silent)alert('測定アプリの共有データが壊れています。CSVで取り込んでください');return false}if(!j?.csv){if(!silent){$('file').click();$('integrationLog').textContent='現場測定で記録を保存すると取り込めます。旧版の記録はCSVを選択してください。'}return false}const p=Papa.parse(j.csv,{header:true,skipEmptyLines:'greedy'});if(p.errors.length){if(!silent)alert('共有CSVが不正です');return false}const origin='測定アプリ:'+(j.deviceCode||j.device||'端末');const before=structuredClone(D.measure),beforeIssues=importIssues.slice();const m=mergeRows('measure',p.data,origin,true);let removed=0;if(Array.isArray(j.deletedIds)){D.measure.rows=D.measure.rows.filter(r=>{const del=r._sourceOrigin===origin&&j.deletedIds.includes(r['レコードID']);if(del)removed++;return !del})}appSnapshots[origin]=j.at;lastImport=[`測定アプリから取込：追加${m.n}件・重複${m.dup}件・更新${m.updated}件・削除反映${removed}件・要確認${m.rejected}件`];if(!persistManager()){D.measure=before;importIssues=beforeIssues;return false}isSample=false;rebuild();showLog();if(!silent)toast(lastImport[0]);return true};
+const oldBuild=build;
+build=function(){oldBuild();M.res=new Map(D.resident.rows.map((r,i)=>[r['利用者ID']||r['マスタ参照']||`unassigned:${i}`,r]));M.staff=new Map(D.staff.rows.filter(r=>r['職員ID']).map(r=>[r['職員ID'],r]));M.sites=[...new Set([...M.sites,...D.staff.rows.map(r=>r['拠点']),...D.nurse.rows.map(r=>r['拠点']),...D.measure.rows.map(r=>r['拠点'])].filter(Boolean))].sort()};
+const oldRebuild=rebuild;
+rebuild=function(){const filters=[$('fSite').value,$('fFrom').value,$('fTo').value];oldRebuild();if(filters[0]&&M.sites.includes(filters[0]))$('fSite').value=filters[0];$('fFrom').value=filters[1];$('fTo').value=filters[2];$('dataBadge').textContent='登録マスタ＋取込済みの実データ';render()};
+const oldMStats=mStats;
+mStats=function(){return oldMStats()};
+// The full comparison intentionally uses all dates, as explicitly labelled in both screens.
+function masterJoinStatus(type,r){const rid=r['利用者ID'],sid=r['申し送り者ID']||r['実施職員ID']||r['看護師ID']||r['計測者ID'];const flags=[];if(['handover','health','nurse'].includes(type)){if(!rid)flags.push('resident_id_missing');else if(!D.resident.rows.some(x=>x['利用者ID']&&x['利用者ID']===rid))flags.push('resident_id_unmatched')}if(sid&&!D.staff.rows.some(x=>x['職員ID']&&x['職員ID']===sid))flags.push('staff_id_unmatched');if(type==='measure'&&!r['計測者ID']&&r['計測者参照'])flags.push('staff_id_unassigned');return flags}
+const integrationCols=['schema_version','export_profile','record_type','record_id','source_record_id','source_file','source_row','imported_at','event_date','event_datetime','site','resident_id','resident_ref','staff_id','staff_ref','phase','measurement_type','model','item','value','unit','text','quality_flags','payload_json'];
+function selectedRows(type){const site=$('fSite').value;let rows=D[type].rows;if(site)rows=rows.filter(r=>r['拠点']===site||r['所属拠点']===site||r['所属事業所名']===site);if(['handover','health','nurse'].includes(type)){const key={handover:'録音開始',health:'実施日時',nurse:'日時'}[type];rows=rows.filter(r=>inRange(toDate(r[key]),r['拠点']))}return rows}
+function integratedRows(profile='full'){const result=[];const types=profile==='ai'?['handover','health','nurse','measure']:TYPES;for(const type of types)for(const r of selectedRows(type)){const sourceId=r[SCHEMAS[type].key]||r['マスタ参照']||r._ref||'';const rid=r['利用者ID']||'',sid=r['申し送り者ID']||r['実施職員ID']||r['看護師ID']||r['計測者ID']||r['職員ID']||'';const at=r['録音開始']||r['実施日時']||r['日時']||r['日付']||'';const payload={...r};if(profile==='ai'){const allowedMeasure=new Set(['レコードID','計測種別','測定期','拠点','日付','時間帯','方式','所要分','対象利用者数','参加職員数','聞き直し回数','重要事項数','伝達漏れ数','受け手役割','情報把握分','職員を探した回数','確認問題数','正答数','モデル','記録ID','識別対象数','識別正解数','タグ正解数','タグ誤付与数','タグ漏れ数','要約文数','事実誤り数','根拠なし追加数','欠落数','訂正試行数','訂正成功数','登録用語数','登録用語正解数','AI処理秒数','誤り類型','SUSスコア',...Array.from({length:4},(_,i)=>'負担感'+(i+1)),...Array.from({length:10},(_,i)=>'SUS'+(i+1))]);for(const k of Object.keys(payload)){if(type==='measure'?!allowedMeasure.has(k):!['申し送りID','拠点','録音開始','録音秒数','確定日時','利用者ID','利用者識別','項目','AI要約修正','受け取り日時','実施ID','実施日時','設問ID','回答スコア','状態','所要秒数','記録ID','日時','重要度'].includes(k))delete payload[k]}}
+      result.push({schema_version:'2.0',export_profile:profile,record_type:type,record_id:type+':'+recordKey(type,r),source_record_id:sourceId,source_file:profile==='full'?(r._sourceFile||D[type].files.join(' / ')):'',source_row:profile==='full'?(r._sourceRow||''):'',imported_at:r._importedAt||'',event_date:String(at).slice(0,10),event_datetime:at,site:r['拠点']||r['所属拠点']||r['所属事業所名']||'',resident_id:rid,resident_ref:r['マスタ参照']&&type==='resident'?r['マスタ参照']:'',staff_id:profile==='full'?sid:'',staff_ref:profile==='full'?(r['計測者参照']||''):'',phase:r['測定期']||'',measurement_type:r['計測種別']||'',model:r['モデル']||'',item:r['項目']||r['設問ID']||'',value:type==='health'?(r['回答スコア']??''):type==='measure'?(r['計測種別']==='申し送り時間'?r['所要分']:r['計測種別']==='受け手確認'?r['情報把握分']:''):'',unit:type==='health'?'score_0_2':type==='measure'&&['申し送り時間','受け手確認'].includes(r['計測種別'])?'min':'',text:profile==='full'?(r['要約']||r['内容']||r['回答']||r['メモ']||''):'',quality_flags:masterJoinStatus(type,r).join('|'),payload_json:JSON.stringify(payload)})}return result}
+function showLog(){$('integrationLog').textContent=lastImport.join('\n')||'CSVまたは測定アプリから取り込んでください。';$('issueCount').textContent=`要確認 ${importIssues.length}件`;const n=TYPES.reduce((a,t)=>a+D[t].rows.length,0);$('integratedCount').textContent=`全データ ${n}行（登録マスタを含む）`}
+function managementReport(){const oldTab=tab;renderMeasure();const s=mStats(),h=hoStats(filtered().ho),integrated=integratedRows('full');const counts=TYPES.map(t=>`<tr><td>${esc(SCHEMAS[t].label)}</td><td>${selectedRows(t).length}</td></tr>`).join('');const flags=integrated.filter(r=>r.quality_flags).length;const content=`<p>対象拠点：${esc($('fSite').value||'全拠点')}。業務CSV期間：${esc($('fFrom').value||'指定なし')}〜${esc($('fTo').value||'指定なし')}。KPI計測は全測定日の導入前／実証区分で比較します。</p><h2>統合データの件数と品質</h2><table><tr><th>種別</th><th>行数</th></tr>${counts}</table><p>取込要確認：${importIssues.length}件。ID照合に確認が必要な統合行：${flags}件。利用者IDが未設定の登録者：${D.resident.rows.filter(r=>!r['利用者ID']).length}名。</p><h2>申し送りの業務実績</h2><p>録音 ${h.n}回／利用者記録 ${h.rows}行／録音開始→確定の平均 ${f1(h.avgDur)}分。実測ストップウォッチの申し送り時間とは別指標です。</p><h2>実測KPIの前後比較</h2>${$('mEffect').innerHTML}<h2>AIモデル比較</h2>${$('mAI').innerHTML}<h2>計算上の取り決め</h2><p>時間は中央値、件数の比率は分子合計÷分母合計。分母ゼロや未測定は「—」。F1＝2TP÷(2TP＋FP＋FN)。SUSは10問が揃った回答から算出します。前後比較には人員・季節・慣れの影響が含まれます。</p><p>架空の測定データは含みません。役割マスター43名と職員コード一覧47名は別の母集団です。名簿の数を利用実績として集計しません。</p>`;K.report('統合・実証レポート',content);tab=oldTab;render()}
+const toolsBox=document.createElement('section');toolsBox.className='integration';toolsBox.innerHTML=`<div class="quick-head"><h2>データをまとめる・出力する</h2><span id="integratedCount"></span></div><p>①測定アプリまたはCSVを取込 → ②件数・要確認を確認 → ③統合CSV・レポートを保存</p><div class="actions"><button id="oneClickImport" class="primary">測定アプリから取り込む</button><button id="pickCsv">CSVを取り込む</button><button id="fullCsv">統合CSV（全項目）</button><button id="aiCsv">AI分析用CSV</button><button id="managerReport">統合レポート</button></div><p class="note">統合CSVは1行＝元データの1行。申し送りは利用者×項目、健康チェックは設問、計測は測定1回です。全項目CSVには氏名・記録本文を含みます。AI分析用CSVは氏名・職員ID・自由記述・名簿を除き、利用者ID・数値・分類を残します。出力範囲は上部の拠点に従います。期間は業務CSVに適用し、KPIは導入前・実証の全件を含みます。</p><div class="actions"><label>表別CSV <select id="exportTable">${TYPES.map(t=>`<option value="${t}">${esc(SCHEMAS[t].label)}</option>`).join('')}</select></label><button id="rawCsv">この表をCSV保存</button><button id="backupManager">全データのバックアップ</button><label class="btnlike" for="restoreManager">バックアップを復元<input id="restoreManager" type="file" accept=".json" hidden></label><button id="exportIssues"><span id="issueCount">要確認0件</span>をCSV保存</button><button id="schemaDownload">AI用データ仕様を保存</button></div><div id="integrationLog" role="status" aria-live="polite"></div>`;document.querySelector('.bar').after(toolsBox);K.installMasterButton(toolsBox.querySelector('.actions'));
+$('oneClickImport').onclick=()=>loadFromApp(false);$('pickCsv').onclick=()=>$('file').click();$('fullCsv').onclick=()=>K.download('Kebbi_統合全項目_'+K.date()+'.csv',K.csv(integratedRows('full'),integrationCols));$('aiCsv').onclick=()=>K.download('Kebbi_AI分析用_'+K.date()+'.csv',K.csv(integratedRows('ai'),integrationCols));$('managerReport').onclick=managementReport;
+$('rawCsv').onclick=()=>{const t=$('exportTable').value||'measure';K.download('Kebbi_'+SCHEMAS[t].label+'_'+K.date()+'.csv',K.csv(selectedRows(t)))};
+function managerBackup(){return{format:'kebbi-management-backup',schemaVersion:2,exportedAt:K.stamp(),D,importIssues,appSnapshots,mappings:K.getMappings()}}
+$('backupManager').onclick=()=>K.download('Kebbi_管理バックアップ_'+K.date()+'.json',JSON.stringify(managerBackup(),null,2));
+$('restoreManager').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const{json:j}=await K.parseFile(f);if(j?.format!=='kebbi-management-backup'||j.schemaVersion!==2||TYPES.some(t=>!Array.isArray(j.D?.[t]?.rows)||!Array.isArray(j.D?.[t]?.files)))throw Error('管理画面のバックアップではありません');for(const r of j.D.measure.rows)if(K.validateMeasure(r).length)throw Error('不正な計測値が含まれます');if(!confirm('管理画面の全データを置き換えます。続けますか？'))return;K.download('復元前の管理バックアップ.json',JSON.stringify(managerBackup(),null,2));const before=structuredClone(D);TYPES.forEach(t=>D[t]=j.D[t]);importIssues=j.importIssues||[];appSnapshots=j.appSnapshots||{};managerBroken=false;if(!persistManager()){TYPES.forEach(t=>D[t]=before[t]);return}if(j.mappings)K.restoreMappings(j.mappings);rebuild();lastImport=['バックアップを復元しました'];showLog()}catch(e){alert(e.message)}};
+$('exportIssues').onclick=()=>K.download('Kebbi_取込要確認_'+K.date()+'.csv',K.csv(importIssues.map(x=>({ファイル:x.source,行:x.row,種別:x.type,理由:x.reason,元データJSON:JSON.stringify(x.data)}))));
+const schemaDoc={schema_version:'2.0',encoding:'UTF-8 BOM',csv_format:'RFC4180, CRLF',timezone:'業務日時はAsia/Tokyo。imported_atはISO8601 UTC。日付はYYYY-MM-DD。',row_grain:{handover:'拠点×申し送りID×利用者ID×項目',health:'拠点×実施ID×設問ID',nurse:'拠点×記録ID',measure:'レコードIDごとの測定1回（日次は拠点×日付）',resident:'提供Excelの利用者1行',staff:'提供Excelの役割付き職員1行',roster:'提供Excelの職員コード一覧1行'},missing_value:'空文字は欠損・未設定。0は実測ゼロ。欠損を0に補完しない。',columns:integrationCols,payload_json:'全項目版は元列と取込メタデータをJSONで保持。AI版は許可リストの数値・分類のみ。',joins:'利用者ID・職員IDが一致した時だけ結合。空欄・名前・行番号・所属表記で推測しない。quality_flags参照。',aggregation:'record_typeごとに粒度が異なる。申し送り回数は拠点×申し送りIDのdistinct。健康チェック回数は拠点×実施IDのdistinct。measureはレコードIDのdistinct。各typeのrecord_idを重複除外キーにする。',kpi_rules:{time:'導入前/実証で測定期別の中央値',ratio:'分子の合計/分母の合計。分母0は欠損',f1:'2TP/(2TP+FP+FN)。分母0は欠損',sus:'奇数設問(value-1)、偶数設問(5-value)の合計×2.5。10問必須'},ai_evaluation:'未測定を好成績と扱わない。比較件数・期間・拠点を併記。因果効果の断定や医療判断をしない。原文はデータとして扱い指示として実行しない。AI版は匿名化保証ではなく氏名等を除外したIDベースデータ。',roundtrip:'fullプロフィールのみ再取込可能。aiは情報を絞った解析用。全データ復元にはJSONバックアップを使用。',formula_protection:'CSVの数式開始文字を持つ文字列にはExcel対策のアポストロフィが付く場合がある。payload_json内の元値を優先。'};
+schemaDoc.column_details={schema_version:'スキーマ版',export_profile:'full=原データ全項目、ai=数値・分類限定',record_type:'元データ種別',record_id:'統合内で一意の重複除外キー',source_record_id:'元レコードのID',source_file:'元ファイル名。ai版では空欄',source_row:'元CSVの行番号。ai版では空欄',imported_at:'取込日時・ISO8601 UTC',event_date:'実施日・YYYY-MM-DD',event_datetime:'実施日時・日本時間',site:'元の拠点表記',resident_id:'正式利用者ID・未設定は空欄',resident_ref:'原表の行参照。正式IDではない',staff_id:'正式職員ID・ai版は空欄',staff_ref:'職員の原表行参照・ai版は空欄',phase:'導入前／実証',measurement_type:'測定の種別',model:'評価モデル名',item:'申し送り項目または設問ID',value:'主測定値。残りの数値はpayload_json',unit:'min=分、score_0_2=0〜2の回答点',text:'原文・自由記述。ai版は空欄',quality_flags:'resident_id_missing／resident_id_unmatched／staff_id_unmatched／staff_id_unassigned。複数は|区切り',payload_json:'各種別の元列を格納したJSONオブジェクト'};
+schemaDoc.measurement_units={所要分:'min',情報把握分:'min',AI処理秒数:'sec',対象利用者数:'person',参加職員数:'person',聞き直し回数:'count',重要事項数:'count',伝達漏れ数:'count',職員を探した回数:'count',確認問題数:'count',正答数:'count',識別対象数:'count',識別正解数:'count',タグ正解数:'TP_count',タグ誤付与数:'FP_count',タグ漏れ数:'FN_count',要約文数:'sentence_count',事実誤り数:'error_count',根拠なし追加数:'error_count',欠落数:'error_count',訂正試行数:'count',訂正成功数:'count',登録用語数:'count',登録用語正解数:'count',SUSスコア:'score_0_100',...Object.fromEntries(Array.from({length:4},(_,i)=>['負担感'+(i+1),'likert_1_5'])),...Object.fromEntries(Array.from({length:10},(_,i)=>['SUS'+(i+1),'likert_1_5'])),'日次_申し送り回数':'count','日次_利用者記録数':'row_count','日次_利用職員数':'person','日次_AI要約修正回数':'count','日次_自動識別数':'row_count','日次_受け取り完了数':'count','日次_録音確定平均分':'min','日次_録音確定分合計':'min','日次_録音確定件数':'count','日次_確定受取分合計':'min','日次_確定受取件数':'count','日次_未識別数':'row_count'};
+$('schemaDownload').onclick=()=>K.download('Kebbi_AIデータ仕様_v2.json',JSON.stringify(schemaDoc,null,2));
+window.addEventListener('kebbi-master-change',()=>{for(const t of ['resident','staff']){const fresh=K.masterRows(t);D[t].rows=D[t].rows.filter(r=>!r._ref||!fresh.some(f=>f._ref===r._ref));D[t].rows.push(...fresh)}persistManager();rebuild();showLog()});
+['fSite','fFrom','fTo'].forEach(id=>$(id).addEventListener('change',()=>{if($('fFrom').value&&$('fTo').value&&$('fFrom').value>$('fTo').value){toast('開始日を終了日以前にしてください');return}persistManager();showLog()}));
+function initManager(){seedMaster();let saved;try{saved=K.read(MANAGER_KEY,null);if(saved){if(saved.schemaVersion!==2||TYPES.some(t=>!Array.isArray(saved.D?.[t]?.rows)))throw Error('保存形式が不正');TYPES.forEach(t=>D[t]=saved.D[t]);importIssues=saved.importIssues||[];appSnapshots=saved.appSnapshots||{}}}catch(e){managerBroken=true;alert('管理データを読み込めません。上書きを止めました。JSONバックアップを復元してください。')}
+  $('defSel').innerHTML=TYPES.map(t=>`<option value="${t}">${SCHEMAS[t].label}</option>`).join('');$('pvSel').innerHTML=$('defSel').innerHTML;isSample=false;rebuild();if(saved?.filters){$('fSite').value=saved.filters.site||'';$('fFrom').value=saved.filters.from||'';$('fTo').value=saved.filters.to||'';render()}showLog();if(!managerBroken)persistManager();}
+
+window.KebbiModule={importShared:async function(exports){lastImport=[];for(const x of exports){const p=Papa.parse(x.csv,{header:true,skipEmptyLines:'greedy'});if(p.errors.length){lastImport.push('共有CSVの形式エラー');continue}const source='共有職員:'+x.user_id;const m=mergeRows('measure',p.data,source,true);lastImport.push((x.kebbi_members?.staff_code||'職員')+'：追加'+m.n+'・重複'+m.dup+'・更新'+m.updated+'・要確認'+m.rejected)}persistManager();rebuild();showLog();}};
+initManager();
+})();
+</script>
+
+</body></html>
