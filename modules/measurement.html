@@ -660,6 +660,7 @@ readForm=function(){const result=humanReadForm();if(result.err)result.err=result
 const formNames={handover:'申し送りの時間',receive:'出勤後の情報確認',survey:'職員アンケート',ai:'AIの精度評価'};
 let recordFilter={type:'',site:''};
 const formSteps={};
+recentList=function(){return ''};
 function draftFor(form){return draft?.form===form?draft:draft?.forms?.[form]}
 const baseCaptureDraft=captureDraft;
 captureDraft=function(){const previous=draft;const forms={...(previous?.forms||{})};if(previous?.form)forms[previous.form]={form:previous.form,fields:previous.fields,watches:previous.watches,step:previous.step||1};baseCaptureDraft();if(draft){forms[draft.form]={form:draft.form,fields:draft.fields,watches:draft.watches};draft={...draft,forms,step:formSteps[S.form]||1};forms[S.form].step=draft.step;localStorage.setItem('kebbi-draft-v2',JSON.stringify(draft));}};
@@ -667,7 +668,7 @@ function prepareDraft(form){const d=draftFor(form);if(d){draft={...d,forms:draft
 function clearLiveTimers(){for(const w of Object.values(S.watch))if(w?.timer)clearInterval(w.timer);S.watch={};}
 function navigate(tab='input',form){
   if(S.tab==='input'&&(draftFor(S.form)||Object.values(S.watch).some(w=>w?.timer)))captureDraft();
-  clearLiveTimers();S.tab=tab;if(form)S.form=form;if(tab==='input')prepareDraft(S.form);render();window.scrollTo(0,0);
+  clearLiveTimers();S.tab=tab;if(form)S.form=form;else if(tab==='input'&&S.form==='ai')S.form='handover';if(tab==='input')prepareDraft(S.form);render();window.scrollTo(0,0);
 }
 function numberedStep(number,title){const e=document.createElement('section');e.className='form-step';e.innerHTML=`<h3><span class="step-bubble">${number}</span>${title}</h3>`;return e;}
 function decorateInput(){
