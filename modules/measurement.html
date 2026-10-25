@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ja">
+<html lang="ja" data-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -143,6 +143,7 @@ svg text{font-family:var(--f-body)}
 <div class="toast" id="toast" hidden></div>
 
 <link rel="stylesheet" href="enhance.css">
+<link rel="stylesheet" href="frontline.css">
 <script src="papaparse.min.js"></script>
 <script src="secure-bootstrap.js"></script>
 <script src="shared.js"></script>
@@ -653,7 +654,65 @@ const oldSaveSettings=saveSettings;
 saveSettings=async function(settings){const before=S.settings;S.settings={...S.settings,...settings};if(!saveLocal()){S.settings=before;return}toast('設定を保存しました');render()};
 const toolBar=document.createElement('div');toolBar.className='toolbar-wrap';toolBar.innerHTML='<div class="actions"><a href="datamgmt.html">管理画面を開く</a><span class="draft-note">①計測を入力 → ②保存 → ③CSV・レポート出力</span></div>';document.querySelector('main').before(toolBar);K.installMasterButton(toolBar.firstElementChild);
 
-window.KebbiModule={showMaster:K.showMaster};
+/* Frontline flow: preserve data definitions; simplify navigation and forms. */
+const humanReadForm=readForm;
+readForm=function(){const result=humanReadForm();if(result.err)result.err=result.err.replace('伝達漏れ数が重要事項数を超過','「伝わらなかった数」が「重要事項の数」より多くなっています。数を確認してください。').replace('正答数が確認問題数を超過','正しく答えられた数が、問題の数より多くなっています。').replace(/負担感([1-4])が空欄/g,'負担感の質問$1に回答してください').replace(/SUS(\d+)が空欄/g,'使いやすさの質問$1に回答してください');return result};
+const formNames={handover:'申し送りの時間',receive:'出勤後の情報確認',survey:'職員アンケート',ai:'AIの精度評価'};
+let recordFilter={type:'',site:''};
+const formSteps={};
+function draftFor(form){return draft?.form===form?draft:draft?.forms?.[form]}
+const baseCaptureDraft=captureDraft;
+captureDraft=function(){const previous=draft;const forms={...(previous?.forms||{})};if(previous?.form)forms[previous.form]={form:previous.form,fields:previous.fields,watches:previous.watches,step:previous.step||1};baseCaptureDraft();if(draft){forms[draft.form]={form:draft.form,fields:draft.fields,watches:draft.watches};draft={...draft,forms,step:formSteps[S.form]||1};forms[S.form].step=draft.step;localStorage.setItem('kebbi-draft-v2',JSON.stringify(draft));}};
+function prepareDraft(form){const d=draftFor(form);if(d){draft={...d,forms:draft?.forms||{}};formSteps[form]=d.step||1;}}
+function clearLiveTimers(){for(const w of Object.values(S.watch))if(w?.timer)clearInterval(w.timer);S.watch={};}
+function navigate(tab='input',form){
+  if(S.tab==='input'&&(draftFor(S.form)||Object.values(S.watch).some(w=>w?.timer)))captureDraft();
+  clearLiveTimers();S.tab=tab;if(form)S.form=form;if(tab==='input')prepareDraft(S.form);render();window.scrollTo(0,0);
+}
+function numberedStep(number,title){const e=document.createElement('section');e.className='form-step';e.innerHTML=`<h3><span class="step-bubble">${number}</span>${title}</h3>`;return e;}
+function decorateInput(){
+  const f=$('f');if(!f)return;const intro=f.previousElementSibling;
+  if(intro?.classList.contains('card')){intro.querySelector('h2').textContent=formNames[S.form];intro.querySelector('.formtype')?.remove();intro.querySelector('.sub').textContent=S.form==='ai'?'評価担当者向けの入力です。採点した数値を記録してください。':'画面の案内に沿って進めてください。入力途中でもホームに戻れます。';}
+  document.querySelectorAll('[data-form]').forEach(b=>{if(b.dataset.form==='receive')b.childNodes[0].textContent='出勤後の情報確認';b.onclick=()=>navigate('input',b.dataset.form)});
+  const observer=$('observer');if(observer){observer.previousElementSibling.textContent='入力する職員（任意）';const note=observer.parentElement.querySelector('p');note.textContent=S.form==='survey'?'匿名で答える場合は、選ばずに進めてください。':'お名前を選べます。選ばずに進めることもできます。';}
+  if(S.form==='handover'||S.form==='receive'){
+    const children=[...f.children],save=children.pop();const first=numberedStep(1,'基本情報を確認する'),second=numberedStep(2,'時間を測る'),third=numberedStep(3,'回数を確認して保存する');
+    first.append(children[1],children[0]);second.append(children[2]);for(const c of children.slice(3))third.append(c);
+    const hint=document.createElement('p');hint.className='form-assist';hint.textContent='「スタート」を押して計測 → 終わったら「ストップ」。時間は自動で入ります。';second.insertBefore(hint,second.children[1]);
+    f.append(first,second,third,save);
+    const steps=[first,second,third],progress=document.createElement('div');progress.className='input-progress';progress.setAttribute('aria-label','入力の進み具合');progress.innerHTML='<span>1 基本情報</span><span>2 時間を測る</span><span>3 確認・保存</span>';f.prepend(progress);
+    const controls=document.createElement('div');controls.className='wizard-controls';controls.innerHTML='<p id="stepMessage" role="alert"></p><div class="row"><button type="button" id="stepBack">← 前に戻る</button><button type="button" id="stepNext" class="primary"></button></div>';f.append(controls);
+    function displayStep(){const n=formSteps[S.form]||1;steps.forEach((el,i)=>el.hidden=i!==n-1);save.hidden=n!==3;progress.querySelectorAll('span').forEach((el,i)=>{el.classList.toggle('active',i===n-1);el.setAttribute('aria-current',i===n-1?'step':'false')});$('stepBack').hidden=n===1;$('stepNext').hidden=n===3;$('stepNext').textContent=n===1?'次へ：時間を測る →':'次へ：回数を確認する →';$('stepMessage').textContent='';}
+    $('stepBack').onclick=()=>{formSteps[S.form]=Math.max(1,(formSteps[S.form]||1)-1);captureDraft();displayStep();window.scrollTo(0,0)};
+    $('stepNext').onclick=()=>{const n=formSteps[S.form]||1;if(n===1&&!K.validDate($('date').value)){$('stepMessage').textContent='日付を確認してください。';return}if(n===2){const id=S.form==='handover'?'minutes':'findMinutes';if(Object.values(S.watch).some(w=>w?.timer)){$('stepMessage').textContent='測定中です。「ストップ」を押してから次に進んでください。';return}if(!$(id).value||(S.form==='handover'?Number($(id).value)<=0:Number($(id).value)<0)){$('stepMessage').textContent='時間を測るか、所要時間（分）を入力してください。';$(id).focus();return}}formSteps[S.form]=n+1;captureDraft();displayStep();window.scrollTo(0,0)};
+    displayStep();
+  }
+  f.querySelector('[type=submit]').textContent='この記録を保存する';
+  const saveNote=document.createElement('p');saveNote.className='mini-status';saveNote.textContent='入力途中の内容も自動保存します。記録の確定は下のボタンから。';f.querySelector('.save-fixed').prepend(saveNote);
+  // Every visible input has an accessible label; preserve existing identifiers and validation.
+  f.querySelectorAll('.field').forEach((field,i)=>{const lab=field.querySelector('.lab');if(!lab)return;lab.id||='field-label-'+i;field.querySelectorAll('input:not([type=radio]):not([type=checkbox]),select,textarea').forEach(el=>el.setAttribute('aria-labelledby',lab.id));field.querySelectorAll('[role=radiogroup]').forEach(el=>el.setAttribute('aria-labelledby',lab.id));});
+  for(const id of ['minutes','findMinutes','date','residents','recId']){const input=$(id);if(input){const lab=input.closest('.field')?.querySelector('.lab');if(lab&&!lab.querySelector('.required-mark'))lab.insertAdjacentHTML('beforeend','<span class="required-mark">入力・確認</span>');}}
+  document.querySelectorAll('[data-step]').forEach(b=>{const label=$(b.dataset.step)?.closest('.field')?.querySelector('.lab')?.textContent||'';b.setAttribute('aria-label',label+(b.dataset.d==='1'?'を1増やす':'を1減らす'));});
+  document.querySelectorAll('[data-watch]').forEach(b=>{b.dataset.running=String(!!S.watch[b.dataset.watch]?.timer);const click=b.onclick;b.onclick=e=>{click(e);b.dataset.running=String(!!S.watch[b.dataset.watch]?.timer);};});
+  if(draft?.form===S.form)for(const [id,w]of Object.entries(draft.watches||{})){const el=$(id+'_t');if(el&&w&&!w.running){const sec=Math.floor(w.sec||0);el.textContent=`${Math.floor(sec/60)}:${String(sec%60).padStart(2,'0')}`;S.watch[id]={sec:w.sec||0};}}
+  const submit=f.onsubmit;f.onsubmit=async e=>{const type=S.form,check=readForm(),before=S.data[type].length,forms={...(draft?.forms||{})};await submit(e);if(S.data[type].length>before){delete forms[type];formSteps[type]=1;const remaining=Object.values(forms);draft=remaining.length?{...remaining[remaining.length-1],forms}:null;if(draft)localStorage.setItem('kebbi-draft-v2',JSON.stringify(draft));else localStorage.removeItem('kebbi-draft-v2');window.parent.KebbiSession.complete({type,summary:`${check.o.date} ／ ${check.o.site} ／ ${summary(type,check.o)}`});}};
+}
+function renderRecords(){
+  const all=COLS.flatMap(type=>(S.data[type]||[]).map(r=>({...r,_kind:type}))).sort((a,b)=>String(b.date||b.at||b.importedAt).localeCompare(String(a.date||a.at||a.importedAt)));
+  const rows=all.filter(r=>(!recordFilter.type||r._kind===recordFilter.type)&&(!recordFilter.site||r.site===recordFilter.site));
+  return `<div class="card"><div class="records-heading"><div><h2>保存した記録</h2><p class="sub">${all.length}件の記録があります。日付の新しい順に表示しています。</p></div><button data-new-record class="primary">＋ 新しく測定する</button></div><div class="records-actions"><button id="recordsCsv" ${all.length?'':'disabled'}>測定CSVを保存</button><button id="recordsReport" ${all.length?'':'disabled'}>レポートを保存</button></div><p class="record-output-note">出力は全記録・全拠点が対象です。レポートは開いて印刷・PDF保存できます。</p><div class="record-filters"><label>記録の種類<select id="recordType"><option value="">すべての種類</option>${COLS.map(c=>`<option value="${c}" ${recordFilter.type===c?'selected':''}>${esc(TYPE_JA[c])}</option>`).join('')}</select></label><label>拠点<select id="recordSite"><option value="">すべての拠点</option>${[...new Set(all.map(r=>r.site).filter(Boolean))].map(v=>`<option ${recordFilter.site===v?'selected':''}>${esc(v)}</option>`).join('')}</select></label></div></div>
+  ${rows.length?`<div class="record-cards">${rows.map(r=>`<article class="record-card"><small>${esc(r.date||String(r.importedAt||'').slice(0,10))}　${esc(r.site||'')}</small><h3>${esc(TYPE_JA[r._kind])}</h3><p>${esc(summary(r._kind,r))}</p><details><summary>詳しい入力内容を確認する</summary><dl>${CSV_COLS.filter(([,k])=>!k.startsWith('_')&&!['id','dev','at','updatedAt','observerRef'].includes(k)&&r[k]!==undefined&&r[k]!=='').map(([l,k])=>`<dt>${esc(l)}</dt><dd>${esc(r[k])}</dd>`).join('')}${r.burden?`<dt>負担感の回答</dt><dd>${esc(r.burden.join('・'))}</dd>`:''}${r.sus?`<dt>使いやすさの回答</dt><dd>${esc(r.sus.join('・'))}</dd>`:''}</dl>${delBtn(r._kind,r.id)}<p class="sub">削除はもう一度押すと確定します。</p></details></article>`).join('')}</div>`:`<div class="empty-records"><h3>${all.length?'条件に合う記録はありません':'まだ記録はありません'}</h3><p>「測定する」から、最初の記録を始められます。</p><button class="primary" data-new-record>測定を始める →</button></div>`}`;
+}
+function measurementReportAll(){const site=S.site;S.site='';K.report('測定レポート','<pre>'+esc(reportText())+'</pre><p>全拠点の全測定記録を対象としています。未測定の項目は「—」です。</p>');S.site=site;}
+const frontRender=render;
+render=function(){
+  clearLiveTimers();
+  if(S.tab!=='records'){frontRender();document.querySelector('.banner.local')?.remove();if(S.tab==='input')decorateInput();}
+  else{$('main').innerHTML=renderRecords();$('recordType').onchange=e=>{recordFilter.type=e.target.value;render()};$('recordSite').onchange=e=>{recordFilter.site=e.target.value;render()};$('recordsCsv').onclick=()=>saveFile('Kebbi_測定_'+today()+'.csv',toCSV(flatRows(S.data)));$('recordsReport').onclick=measurementReportAll;document.querySelectorAll('[data-new-record]').forEach(b=>b.onclick=()=>window.parent.KebbiSession.open('home'));document.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{if(b.dataset.armed){const[c,id]=b.dataset.del.split('|');delRec(c,id)}else{b.dataset.armed='1';b.textContent='もう一度押して削除';setTimeout(()=>{if(b.isConnected){delete b.dataset.armed;b.textContent='削除'}},5000)}});}
+  window.parent.KebbiSession.refreshHome();
+};
+window.KebbiModule={showMaster:K.showMaster,navigate};
+
 render();initStore();
 })();
 </script>
