@@ -4,7 +4,7 @@
 <base target="_top">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>管理画面デモ｜Kebbi Care DB v3</title>
+<title>管理画面デモ｜Kebbi Care DB v3.1</title>
 <style>
 :root{--ink:#1d2b3a;--ink2:#3d4c5a;--mute:#6a7682;--line:#dfe3e6;--bg:#f4f5f2;--teal:#1f7a72;--teal-bg:#e3efed;--orange:#c95a24;--orange-bg:#f8e7dc;--blue:#2a5d9f;--blue-bg:#e2ebf6;--purple:#6a4c93;--purple-bg:#ece4f5;--red:#b3261e;--red-bg:#f9e2e0;--ok:#2e7d32}
 *{box-sizing:border-box}body{margin:0;font-family:"Hiragino Sans","Noto Sans JP","Yu Gothic UI","Meiryo",system-ui,sans-serif;color:var(--ink);background:var(--bg);font-size:14px;line-height:1.6}
@@ -41,7 +41,7 @@ pre.code{background:#1d2b3a;color:#e8eef2;padding:12px;border-radius:8px;white-s
 </style>
 </head>
 <body>
-<header><div><h1>Kebbi Care DB 管理画面</h1><div class="sub">申し送り・健康チェック・連絡事項（GENIAC実証）</div></div><div class="who" id="who"></div></header>
+<header><div><h1>Kebbi Care DB 管理画面</h1><div class="sub">ゆるり・あ鶴舞　申し送り・健康チェック・連絡事項（GENIAC実証）</div></div><div class="who" id="who"></div></header>
 <nav id="nav" class="hidden">
   <a data-v="records">記録</a><a data-v="playback">再生状況</a><a data-v="dash">集計</a><a data-v="csv">CSV出力</a>
   <a data-v="masters" class="adm">マスタ</a><a data-v="devices" class="adm">Kebbi端末</a><a data-v="settings" class="adm">設定</a><a id="logout">ログアウト</a>
@@ -58,7 +58,7 @@ pre.code{background:#1d2b3a;color:#e8eef2;padding:12px;border-radius:8px;white-s
 
   <section id="v-records" class="view hidden">
     <div class="card"><div class="row">
-      <label class="f">拠点<select id="fSite"></select></label>
+      <label class="f hidden">拠点<select id="fSite"></select></label>
       <label class="f">期間（開始）<input type="date" id="fFrom"></label>
       <label class="f">期間（終了）<input type="date" id="fTo"></label>
       <label class="f">種別<select id="fType"><option value="">すべて</option><option value="handover">申し送り</option><option value="health">健康チェック</option><option value="notice">連絡事項</option></select></label>
@@ -73,7 +73,7 @@ pre.code{background:#1d2b3a;color:#e8eef2;padding:12px;border-radius:8px;white-s
 
   <section id="v-playback" class="view hidden">
     <div class="card"><div class="row">
-      <label class="f">拠点<select id="pSite"></select></label>
+      <label class="f hidden">拠点<select id="pSite"></select></label>
       <label class="f">期間（開始）<input type="date" id="pFrom"></label>
       <button class="btn primary" id="pGo">表示</button>
       <span class="small muted grow">確定した申し送り・連絡事項について、Kebbiで聞いた職員の人数を表示します（同じ記録を訂正すると0人に戻ります）。</span>
@@ -83,24 +83,25 @@ pre.code{background:#1d2b3a;color:#e8eef2;padding:12px;border-radius:8px;white-s
 
   <section id="v-dash" class="view hidden">
     <div class="card"><div class="row">
-      <label class="f">拠点<select id="dSite"></select></label>
+      <label class="f hidden">拠点<select id="dSite"></select></label>
       <label class="f">期間（開始）<input type="date" id="dFrom"></label>
       <label class="f">期間（終了）<input type="date" id="dTo"></label>
       <button class="btn primary" id="dGo">集計</button>
       <span class="small muted grow">記録から算出した参考値です。K1（総所要時間）の削減率は導入前の計測値と比較してください。</span>
     </div></div>
     <div class="kpis" id="kpis"></div>
-    <div class="card"><h2>申し送り 7項目の記載率（確定分）</h2><div id="fill"></div></div>
+    <div class="card"><h2>申し送り 7項目＋該当せず の記載率（確定分）</h2><div id="fill"></div></div>
     <div class="card"><h2>日別の件数</h2><div class="scroll" style="max-height:360px"><table class="t" id="dayTbl"></table></div></div>
   </section>
 
   <section id="v-csv" class="view hidden">
     <div class="card">
       <h2>CSV出力</h2>
-      <p class="small muted">Excelで開ける形式（UTF-8・BOM付き）です。記録は「記録」画面で指定した拠点・期間・種別・状態の条件で出力します。</p>
+      <p class="small muted">Excelで開ける形式（UTF-8・BOM付き）です。記録は「記録」画面で指定した期間・種別・状態の条件で出力します。記録CSVには 要約前（元テキスト）・要約後（AI要約）・確定本文、7項目＋該当せず（AIの仕分けと確定後の両方）、記録・AI処理・保存・確定・再生の各日時が入ります。</p>
       <div class="row">
         <button class="btn primary" data-csv="records">記録（申し送り・7項目・健康チェック・連絡事項）</button>
         <button class="btn" data-csv="playbacks">再生履歴</button>
+        <button class="btn" data-csv="events">操作履歴（日時つき）</button>
         <button class="btn adm" data-csv="residents">利用者マスタ</button>
         <button class="btn adm" data-csv="staff">職員マスタ</button>
         <button class="btn adm" data-csv="terms">用語マスタ</button>
@@ -125,7 +126,7 @@ pre.code{background:#1d2b3a;color:#e8eef2;padding:12px;border-radius:8px;white-s
   <section id="v-devices" class="view hidden">
     <div class="card"><h2>Kebbi端末の登録</h2>
       <p class="small muted">端末ごとに接続用の設定（URL・トークン）を発行します。トークンは発行時に1回だけ表示されます。紛失・譲渡・故障時は「停止」し、新しい端末IDで登録し直してください。</p>
-      <div class="row"><label class="f">端末ID（英数字）<input type="text" id="devId" placeholder="kebbi-yururia-01"></label><label class="f">拠点<select id="devSite"></select></label><label class="f grow">設置場所メモ<input type="text" id="devLabel" placeholder="1階 詰所"></label><button class="btn primary" id="devGo">発行</button></div>
+      <div class="row"><label class="f">端末ID（英数字）<input type="text" id="devId" placeholder="kebbi-yururia-01"></label><label class="f">施設<select id="devSite"></select></label><label class="f grow">設置場所メモ<input type="text" id="devLabel" placeholder="1階 詰所"></label><button class="btn primary" id="devGo">発行</button></div>
       <div id="devOut"></div>
     </div>
     <div class="scroll"><table class="t" id="devTbl"></table></div>
@@ -136,6 +137,11 @@ pre.code{background:#1d2b3a;color:#e8eef2;padding:12px;border-radius:8px;white-s
       <p class="small muted">初期値は仮置きです。ジェネラスで確定した名称に変更してください。データは item_1〜item_7 の固定列に保存されるため、名称を変えても過去の記録は崩れません（意味を入れ替えるのは不可）。</p>
       <div id="itemsEd" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px"></div>
       <div class="row" style="margin-top:10px"><button class="btn primary" id="itemsGo">保存</button><span id="itemsMsg" class="small"></span></div>
+      <p class="small muted" style="margin-bottom:0">8つめの区分「該当せず」は固定です（7項目のどれにも当てはまらない内容の置き場所。item_none 列に保存）。</p>
+    </div>
+    <div class="card"><h2>利用者の氏名をKebbiへ送る</h2>
+      <p class="small muted">氏名は管理画面（マスタ → 利用者）で管理します。初期設定では Kebbi へは送らず、ニックネーム・読み方・発話名だけを送ります。氏名を送ると、AIの利用者特定と音声認識の精度が上がる一方、端末内に氏名が残ります。利用者の同意の範囲をジェネラスで確認してから切り替えてください。</p>
+      <label class="row" style="align-items:center;gap:8px"><input type="checkbox" id="fnOn"> 氏名をKebbiへ送る</label><div id="fnMsg" class="small" style="margin-top:6px"></div>
     </div>
   </section>
 </main>
@@ -181,7 +187,7 @@ function login(k){
 }
 $('#logout').addEventListener('click',function(){try{sessionStorage.removeItem('kc3key')}catch(_){}location.reload()});
 function fillSelects(){
-  var so='<option value="">すべて</option>'+S.ctx.sites.map(function(s){return '<option value="'+esc(s.site_id)+'">'+esc(s.name)+'</option>'}).join('');
+  var so=S.ctx.sites.map(function(s){return '<option value="'+esc(s.site_id)+'">'+esc(s.name)+'</option>'}).join('');
   ['#fSite','#pSite','#dSite'].forEach(function(id){$(id).innerHTML=so});
   $('#devSite').innerHTML=S.ctx.sites.map(function(s){return '<option value="'+esc(s.site_id)+'">'+esc(s.name)+'</option>'}).join('');
   $('#fRes').innerHTML='<option value="">すべて</option>'+S.ctx.residents.map(function(r){return '<option value="'+esc(r.resident_id)+'">'+esc(r.resident_id+' '+r.display_name)+'</option>'}).join('');
@@ -209,10 +215,10 @@ function loadRecords(){
   run('adminRecords',recQuery()).then(function(r){
     S.rows=r.rows;
     $('#recCount').textContent=r.total+' 件'+(r.total>r.rows.length?'（新しい順に '+r.rows.length+' 件を表示）':'');
-    var h='<tr><th>日時</th><th>拠点</th><th>種別</th><th>状態</th><th>利用者</th><th>職員</th><th>本文</th><th>7項目</th><th>再生</th></tr>';
-    if(!r.rows.length)h+='<tr><td colspan="9" class="muted" style="text-align:center;padding:24px">記録がありません</td></tr>';
+    var h='<tr><th>日時</th><th>施設</th><th>種別</th><th>状態</th><th>利用者</th><th>職員</th><th>本文</th><th>7項目</th><th>該当せず</th><th>再生</th></tr>';
+    if(!r.rows.length)h+='<tr><td colspan="10" class="muted" style="text-align:center;padding:24px">記録がありません</td></tr>';
     r.rows.forEach(function(x,i){
-      h+='<tr class="click" data-i="'+i+'"><td style="white-space:nowrap">'+esc(fmt(x.recorded_at))+'</td><td>'+esc(siteName(x.site_id))+'</td><td>'+typeTag(x.type)+'</td><td>'+statusTag(x.status)+'</td><td>'+esc(x.resident_id?x.resident_id+' '+resName(x.resident_id):'—')+'</td><td>'+esc(x.staff_id)+'</td><td>'+esc(trunc(x.confirmed_text||x.ai_summary||x.source_text,50))+'</td><td>'+(x.type==='handover'?'<span class="tag '+(x.filled===7?'ok':'ng')+'">'+x.filled+'/7</span>':'')+'</td><td>'+(x.status==='confirmed'&&x.type!=='health'?(x.played_count?'<span class="tag ok">'+x.played_count+'人</span>':'<span class="tag ng">未</span>'):'')+'</td></tr>';
+      h+='<tr class="click" data-i="'+i+'"><td style="white-space:nowrap">'+esc(fmt(x.recorded_at))+'</td><td>'+esc(siteName(x.site_id))+'</td><td>'+typeTag(x.type)+'</td><td>'+statusTag(x.status)+'</td><td>'+esc(x.resident_id?x.resident_id+' '+resName(x.resident_id):'—')+'</td><td>'+esc(x.staff_id)+'</td><td>'+esc(trunc(x.confirmed_text||x.ai_summary||x.source_text,50))+'</td><td>'+(x.type==='handover'?'<span class="tag '+(x.filled===7?'ok':'ng')+'">'+x.filled+'/7</span>':'')+'</td><td>'+(x.has_none?'<span class="tag o">あり</span>':'')+'</td><td>'+(x.status==='confirmed'&&x.type!=='health'?(x.played_count?'<span class="tag ok">'+x.played_count+'人</span>':'<span class="tag ng">未</span>'):'')+'</td></tr>';
     });
     $('#recTbl').innerHTML=h;
     document.querySelectorAll('#recTbl tr.click').forEach(function(tr){tr.addEventListener('click',function(){openDetail(S.rows[+tr.dataset.i].record_id)})});
@@ -222,16 +228,22 @@ function openDetail(id){
   run('adminRecordDetail',id).then(function(d){
     var r=d.record;
     var h='<div class="row" style="align-items:center"><h2 style="margin:0;font-size:17px">'+typeTag(r.type)+' '+statusTag(r.status)+' '+esc(r.resident_id?r.resident_id+' '+resName(r.resident_id):'')+'</h2><span class="grow"></span><button class="btn" id="dClose">閉じる</button></div>';
-    h+='<dl class="kv" style="margin-top:12px"><dt>日時</dt><dd>'+esc(fmt(r.recorded_at))+'</dd><dt>拠点</dt><dd>'+esc(siteName(r.site_id))+'</dd><dt>記録した職員</dt><dd>'+esc(r.staff_id)+'</dd>'+(r.recipient?'<dt>宛先</dt><dd>'+esc(r.recipient)+'</dd>':'')+'<dt>版</dt><dd>'+r.revision+'（'+esc(fmt(r.updated_at))+' 更新）</dd>'+(r.confirmed_by?'<dt>確定</dt><dd>'+esc(r.confirmed_by)+'　'+esc(fmt(r.confirmed_at))+'</dd>':'')+(r.duration_sec!=null?'<dt>所要時間</dt><dd>'+r.duration_sec+' 秒</dd>':'')+(r.ai_model?'<dt>AIモデル</dt><dd>'+esc(r.ai_model)+'</dd>':'')+'</dl>';
-    h+='<h3>確定本文（Kebbiが読み上げる文）</h3><div style="white-space:pre-wrap">'+(esc(r.confirmed_text)||'<span class="muted">（未確定）</span>')+'</div>';
-    if(r.type==='handover'||Object.keys(r.items).some(function(k){return r.items[k]})){h+='<h3>7項目</h3><dl class="kv">';r.item_labels.forEach(function(l,i){var v=r.items['item_'+(i+1)];h+='<dt>'+esc(l)+'</dt><dd>'+(v?esc(v):'<span class="muted">（空）</span>')+'</dd>'});h+='</dl>'}
-    h+='<h3>AI要約</h3><div style="white-space:pre-wrap">'+(esc(r.ai_summary)||'<span class="muted">（なし）</span>')+'</div>';
-    if(r.source_text)h+='<h3>元テキスト（音声認識）</h3><div style="white-space:pre-wrap" class="muted">'+esc(r.source_text)+'</div>';
+    h+='<dl class="kv" style="margin-top:12px"><dt>施設</dt><dd>'+esc(siteName(r.site_id))+'</dd><dt>記録した職員</dt><dd>'+esc(r.staff_id)+'</dd>'+(r.recipient?'<dt>宛先</dt><dd>'+esc(r.recipient)+'</dd>':'')+'<dt>版</dt><dd>'+r.revision+'</dd>'+(r.duration_sec!=null?'<dt>所要時間</dt><dd>'+r.duration_sec+' 秒</dd>':'')+(r.ai_model?'<dt>AIモデル</dt><dd>'+esc(r.ai_model)+'</dd>':'')+'</dl>';
+    h+='<h3>日時</h3><dl class="kv"><dt>記録（話した）</dt><dd>'+esc(fmt(r.recorded_at))+'</dd><dt>AI処理</dt><dd>'+(esc(fmt(r.ai_processed_at))||'<span class="muted">（未送信）</span>')+'</dd><dt>初回保存</dt><dd>'+esc(fmt(r.created_at))+'</dd><dt>最終更新</dt><dd>'+esc(fmt(r.updated_at))+'</dd><dt>確定</dt><dd>'+(r.confirmed_at?esc(fmt(r.confirmed_at))+'　'+esc(r.confirmed_by):'<span class="muted">（未確定）</span>')+'</dd></dl>';
+    h+='<h3>要約前 → 要約後 → 確定</h3><dl class="kv"><dt>①要約前<br>元テキスト</dt><dd class="muted">'+(esc(r.source_text)||'（なし）')+'</dd><dt>②要約後<br>AI要約</dt><dd>'+(esc(r.ai_summary)||'<span class="muted">（なし）</span>')+'</dd><dt>③確定本文<br>（読み上げ）</dt><dd>'+(esc(r.confirmed_text)||'<span class="muted">（未確定）</span>')+'</dd></dl>';
+    var keys=r.item_keys||['item_1','item_2','item_3','item_4','item_5','item_6','item_7','item_none'];
+    var anyItem=keys.some(function(k){return r.items[k]||(r.ai_items||{})[k]});
+    if(r.type==='handover'||anyItem){
+      h+='<h3>7項目＋該当せず（AIの仕分け／確定後）</h3><table class="t"><tr><th>区分</th><th>AIの仕分け</th><th>確定後</th></tr>';
+      keys.forEach(function(k,i){var a=(r.ai_items||{})[k]||'',c=r.items[k]||'';h+='<tr'+(k==='item_none'?' style="background:#fafaf7"':'')+'><td style="white-space:nowrap"><b>'+esc(r.item_labels[i])+'</b></td><td class="muted">'+(esc(a)||'—')+'</td><td>'+(esc(c)||'<span class="muted">（空）</span>')+(a&&c&&a!==c?' <span class="tag o">修正</span>':'')+'</td></tr>'});
+      h+='</table>';
+    }
     if(S.role==='admin'){
       var conf=S.ctx.staff.filter(function(s){return s.can_confirm});
       h+='<h3>'+(r.status==='confirmed'?'確定本文を訂正する':'確定する')+'</h3><p class="small muted">訂正すると版が上がり、Kebbiで再生済みの職員にも再び読み上げ対象になります。</p><textarea id="cText">'+esc(r.confirmed_text||r.ai_summary)+'</textarea><div class="row" style="margin-top:6px"><label class="f">確定する職員（確定権限あり）<select id="cStaff">'+conf.map(function(s){return '<option value="'+esc(s.staff_id)+'">'+esc(s.staff_id+' '+s.display_name)+'</option>'}).join('')+'</select></label><button class="btn primary" id="cGo">'+(r.status==='confirmed'?'訂正を保存':'確定する')+'</button><span id="cMsg" class="small"></span></div>';
     }
-    if(d.playbacks.length){h+='<h3>再生履歴</h3><table class="t"><tr><th>聞いた職員</th><th>版</th><th>再生日時</th><th>端末</th></tr>'+d.playbacks.map(function(p){return '<tr><td>'+esc(p.staff_id)+'</td><td>'+esc(p.revision)+'</td><td>'+esc(fmt(p.played_at))+'</td><td>'+esc(p.device_id)+'</td></tr>'}).join('')+'</table>'}
+    if(d.playbacks.length){h+='<h3>再生履歴</h3><table class="t"><tr><th>聞いた職員</th><th>版</th><th>モード</th><th>再生日時</th><th>端末</th></tr>'+d.playbacks.map(function(p){return '<tr><td>'+esc(p.staff_id)+'</td><td>'+esc(p.revision)+'</td><td>'+(p.mode==='easy'?'やさしい':'通常')+'</td><td>'+esc(fmt(p.played_at))+'</td><td>'+esc(p.device_id)+'</td></tr>'}).join('')+'</table>'}
+    if((d.events||[]).length){h+='<h3>操作履歴</h3><table class="t"><tr><th>日時</th><th>操作</th><th>版</th><th>職員</th><th>端末</th></tr>'+d.events.map(function(e){return '<tr><td style="white-space:nowrap">'+esc(fmt(e.at))+'</td><td>'+esc(e.action)+'</td><td>'+esc(e.revision)+'</td><td>'+esc(e.staff_id)+'</td><td>'+esc(e.device_id)+'</td></tr>'}).join('')+'</table>'}
     if(d.history.length){h+='<h3>過去の版</h3>'+d.history.map(function(x){return '<div class="small" style="border-top:1px solid var(--line);padding:6px 0"><b>版'+x.revision+'</b> '+statusTag(x.status)+' '+esc(fmt(x.updated_at))+'<div style="white-space:pre-wrap">'+esc(x.confirmed_text||x.ai_summary)+'</div></div>'}).join('')}
     $('#layer').innerHTML='<div class="drawer-bg" id="dbg"></div><div class="drawer">'+h+'</div>';
     $('#dbg').addEventListener('click',closeLayer);$('#dClose').addEventListener('click',closeLayer);
@@ -264,7 +276,8 @@ function loadDash(){
   run('adminDashboard',{site_id:$('#dSite').value,from:dayStart($('#dFrom').value),until:dayEnd($('#dTo').value)}).then(function(d){
     $('#kpis').innerHTML=kpi(d.total,'記録（途中保存を含む）')+kpi(d.confirmed,'確定')+kpi(d.draft,'途中保存（未確定）')+kpi(d.handover,'申し送り（確定）')+kpi(d.health,'健康チェック（確定）')+kpi(d.notice,'連絡事項（確定）')
       +kpi(d.playback_rate==null?'—':(d.playback_rate*100).toFixed(1)+'%','再生済み率（1人以上が聞いた割合）')+kpi(d.avg_duration_sec==null?'—':(d.avg_duration_sec>=60?(d.avg_duration_sec/60).toFixed(1)+'分':Math.round(d.avg_duration_sec)+'秒'),'申し送り1件の平均所要時間');
-    $('#fill').innerHTML=d.item_fill.map(function(x){var p=x.total?x.filled/x.total*100:0;return '<div style="margin-bottom:8px"><div class="row small" style="align-items:center"><b>'+esc(x.label)+'</b><span class="grow"></span><span>'+(x.total?p.toFixed(1)+'%（'+x.filled+'/'+x.total+'）':'—')+'</span></div><div class="bar"><i style="width:'+p+'%"></i></div></div>'}).join('');
+    $('#kpis').innerHTML+=kpi(d.ai_changed==null?'—':d.ai_changed,'確定時に7項目の仕分けを直した件数');
+    $('#fill').innerHTML=d.item_fill.concat(d.item_none?[{label:'該当せず',filled:d.item_none.filled,total:d.item_none.total}]:[]).map(function(x){var p=x.total?x.filled/x.total*100:0;return '<div style="margin-bottom:8px"><div class="row small" style="align-items:center"><b>'+esc(x.label)+'</b><span class="grow"></span><span>'+(x.total?p.toFixed(1)+'%（'+x.filled+'/'+x.total+'）':'—')+'</span></div><div class="bar"><i style="width:'+p+'%"></i></div></div>'}).join('');
     var h='<tr><th>日付</th><th>申し送り</th><th>健康チェック</th><th>連絡事項</th></tr>';
     if(!d.by_day.length)h+='<tr><td colspan="4" class="muted" style="text-align:center;padding:20px">記録がありません</td></tr>';
     d.by_day.forEach(function(x){h+='<tr><td>'+esc(x.date)+'</td><td>'+x.handover+'</td><td>'+x.health+'</td><td>'+x.notice+'</td></tr>'});
@@ -283,22 +296,34 @@ document.querySelectorAll('[data-csv]').forEach(function(b){b.addEventListener('
 })});
 
 // ---------- マスタ ----------
-var MCOLS={residents:[['resident_id','利用者ID'],['site_id','拠点'],['display_name','画面表示名'],['speech_name','発話名'],['reading','読み'],['call_names','認識させたい呼び名'],['consent_checked','同意照合日'],['start_date','開始'],['end_date','終了']],
-  staff:[['staff_id','職員ID'],['display_name','表示名'],['role','役割'],['job','職種'],['site_id','所属'],['shift','勤務'],['can_input','入力'],['can_confirm','確定'],['can_view','閲覧'],['can_play','再生'],['start_date','開始'],['end_date','終了']],
+var MCOLS={residents:[['resident_id','利用者ID'],['full_name','氏名'],['display_name','画面表示名'],['reading','読み方'],['speech_name','発話名'],['call_names','ニックネーム・呼び名'],['consent_checked','同意照合日'],['start_date','開始'],['end_date','終了']],
+  staff:[['staff_id','職員ID'],['display_name','表示名'],['role','役割'],['job','職種'],['home_office','元の所属'],['display_mode','モード'],['can_input','入力'],['can_confirm','確定'],['can_view','閲覧'],['can_play','再生'],['start_date','開始'],['end_date','終了']],
   roles:[['role','役割'],['scope','対象範囲'],['can_input','入力・訂正'],['can_confirm','内容の確定'],['can_view','閲覧・原文'],['can_play','Kebbi音声再生']],
-  terms:[['kind','種類'],['readings','読み方'],['display','表記'],['easy_display','やさしい表示'],['note','注意']],
-  sites:[['site_id','拠点ID'],['name','名称'],['aliases','別名']]};
+  terms:[['kind','種類'],['readings','読み方（認識用）'],['normal_display','通常：表示'],['normal_speech','通常：発話'],['easy_display','やさしい：表示'],['easy_speech','やさしい：発話'],['note','注意']],
+  sites:[['site_id','施設ID'],['name','名称'],['aliases','別名']]};
+var MID={residents:function(r){return r.resident_id},staff:function(r){return r.staff_id},terms:function(r){return r.kind+'|'+r.normal_display}};
 var MDATA=null;
 function yn(v){return v==='1'?'可':v==='0'?'不可':v}
 function loadMasters(){
   run('adminMasters').then(function(m){MDATA=m;
-    $('#mInfo').innerHTML='利用者 '+m.residents.length+' 名・職員 '+m.staff.length+' 名・用語 '+m.terms.length+' 件　／　版 '+esc(m.version)+(m.log.length?'　／　最終取込 '+esc(fmt(m.log[0].at)):'');
+    $('#mInfo').innerHTML='利用者 '+m.residents.length+' 名・職員 '+m.staff.length+' 名・用語 '+m.terms.length+' 件　／　版 '+esc(m.version)+(m.log.length?'　／　最終取込 '+esc(fmt(m.log[0].at)):'')+'<br>下線の項目はクリックで編集できます（氏名・ニックネーム・読み方・発話名、用語の表示と発話、職員のモード）。編集した値はXLSXを取り込み直しても残ります。';
     renderMTab();
   }).catch(fail);
 }
 $('#mTab').addEventListener('change',renderMTab);
-function renderMTab(){if(!MDATA)return;var k=$('#mTab').value,cols=MCOLS[k];var h='<tr>'+cols.map(function(c){return '<th>'+c[1]+'</th>'}).join('')+'</tr>';
-  MDATA[k].forEach(function(r){h+='<tr>'+cols.map(function(c){var v=r[c[0]];return '<td>'+esc(/^can_/.test(c[0])?yn(v):c[0]==='site_id'?siteName(v):v)+'</td>'}).join('')+'</tr>'});$('#mTbl').innerHTML=h}
+function renderMTab(){if(!MDATA)return;var k=$('#mTab').value,cols=MCOLS[k],ed=(MDATA.editable||{})[k]||{};var h='<tr>'+cols.map(function(c){return '<th>'+c[1]+'</th>'}).join('')+'</tr>';
+  MDATA[k].forEach(function(r,ri){h+='<tr>'+cols.map(function(c){var v=r[c[0]];var t=/^can_/.test(c[0])?yn(v):c[0]==='display_mode'?(v==='easy'?'やさしい':'通常'):v;
+    if(ed[c[0]])return '<td><span class="medit" data-ri="'+ri+'" data-f="'+c[0]+'" style="border-bottom:1px dashed var(--teal);cursor:pointer;display:inline-block;min-width:2em">'+(esc(t)||'<span class="muted">（未入力）</span>')+'</span></td>';
+    return '<td>'+esc(t)+'</td>'}).join('')+'</tr>'});$('#mTbl').innerHTML=h;
+  document.querySelectorAll('.medit').forEach(function(el){el.addEventListener('click',function(){editMaster(k,MDATA[k][+el.dataset.ri],el.dataset.f)})});
+}
+function editMaster(k,r,f){
+  var label=MDATA.editable[k][f],cur=r[f]||'';
+  var input=f==='display_mode'?'<select id="meV"><option value="normal"'+(cur!=='easy'?' selected':'')+'>通常</option><option value="easy"'+(cur==='easy'?' selected':'')+'>やさしい</option></select>':'<input type="text" id="meV" style="width:100%" value="'+esc(cur)+'">';
+  modal('<h3 style="margin-top:0">'+esc(label)+'</h3><p class="small muted">'+esc(MID[k](r))+(f==='full_name'?'　氏名は管理画面でだけ表示します（Kebbiへ送るかは「設定」で切替）。':'')+'</p>'+input+'<div class="row" style="justify-content:flex-end;margin-top:10px"><span id="meMsg" class="small grow"></span><button class="btn" id="meX">取消</button><button class="btn primary" id="meGo">保存</button></div>');
+  $('#meX').addEventListener('click',closeLayer);
+  $('#meGo').addEventListener('click',function(){$('#meGo').disabled=true;run('adminUpdateMaster',k,MID[k](r),f,$('#meV').value).then(function(){closeLayer();loadMasters();if(k==='residents'||k==='staff')run('adminLogin').then(function(ctx){S.ctx=ctx;fillSelects()})}).catch(function(e){$('#meGo').disabled=false;$('#meMsg').innerHTML='<span style="color:var(--red)">'+esc(e.message)+'</span>'})});
+}
 $('#xlsx').addEventListener('change',function(){
   var f=$('#xlsx').files[0];S.sheets=null;$('#impGo').disabled=true;if(!f)return;
   if(typeof XLSX==='undefined'){$('#impPrev').innerHTML='<div class="banner err">XLSX読込部品を読み込めませんでした。ネットワークを確認して画面を開き直してください。</div>';return}
@@ -338,10 +363,18 @@ $('#devGo').addEventListener('click',function(){
 });
 
 // ---------- 設定 ----------
-function loadSettings(){$('#itemsEd').innerHTML=S.ctx.items.map(function(l,i){return '<label class="f">item_'+(i+1)+'<input type="text" class="itIn" value="'+esc(l)+'"></label>'}).join('')}
+function loadSettings(){$('#fnOn').checked=!!S.ctx.send_full_name;$('#fnMsg').textContent='';$('#itemsEd').innerHTML=S.ctx.items.map(function(l,i){return '<label class="f">item_'+(i+1)+'<input type="text" class="itIn" value="'+esc(l)+'"></label>'}).join('')}
 $('#itemsGo').addEventListener('click',function(){
   var v=Array.prototype.map.call(document.querySelectorAll('.itIn'),function(i){return i.value});
   run('adminSaveItemLabels',v).then(function(l){S.ctx.items=l;$('#itemsMsg').innerHTML='<span style="color:var(--ok)">保存しました</span>'}).catch(function(e){$('#itemsMsg').innerHTML='<span style="color:var(--red)">'+esc(e.message)+'</span>'});
+});
+
+function setFn(on){run('adminSetSendFullName',on).then(function(v){S.ctx.send_full_name=v;$('#fnOn').checked=v;$('#fnMsg').innerHTML='<span style="color:var(--ok)">'+(v?'氏名を送ります':'氏名は送りません')+'（Kebbiは次回のマスタ取得で反映）</span>'}).catch(function(e){$('#fnOn').checked=!on;$('#fnMsg').innerHTML='<span style="color:var(--red)">'+esc(e.message)+'</span>'})}
+$('#fnOn').addEventListener('change',function(){var on=$('#fnOn').checked;
+  if(!on){setFn(false);return}
+  $('#fnOn').checked=false;
+  modal('<h3 style="margin-top:0">氏名をKebbiへ送りますか？</h3><p class="small">利用者の同意の範囲（端末内に氏名が残ること）をジェネラスで確認済みの場合だけ切り替えてください。</p><div class="row" style="justify-content:flex-end"><button class="btn" id="fnX">やめる</button><button class="btn primary" id="fnGo">確認済み・送る</button></div>');
+  $('#fnX').addEventListener('click',closeLayer);$('#fnGo').addEventListener('click',function(){closeLayer();setFn(true)});
 });
 
 // 再読込時の自動ログイン（同じタブの間だけ）
@@ -351,7 +384,7 @@ if(saved)login(saved);
 </script>
 <script>
 // 別のタブ（Kebbi操作デモ）で記録が変わったら、表示中の一覧を更新する
-window.addEventListener('storage',function(e){if(e.key!=='kc3demo_v1')return;var v=document.querySelector('nav a.on');if(!v)return;
+window.addEventListener('storage',function(e){if(e.key!=='kc3demo_v31')return;var v=document.querySelector('nav a.on');if(!v)return;
   var map={records:'#fGo',playback:'#pGo',dash:'#dGo'};var b=map[v.dataset.v]&&document.querySelector(map[v.dataset.v]);if(b)b.click();});
 </script>
 </body>

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Kebbi操作デモ｜Kebbi Care DB v3</title>
+<title>Kebbi操作デモ｜Kebbi Care DB v3.1</title>
 <style>
 :root{--ink:#1d2b3a;--ink2:#3d4c5a;--mute:#6a7682;--line:#dfe3e6;--bg:#eef1ee;--teal:#1f7a72;--teal-bg:#e3efed;--orange:#c95a24;--orange-bg:#f8e7dc;--blue:#2a5d9f;--blue-bg:#e2ebf6;--purple:#6a4c93;--purple-bg:#ece4f5;--red:#b3261e;--red-bg:#f9e2e0;--ok:#2e7d32}
 *{box-sizing:border-box}body{margin:0;font-family:"Hiragino Sans","Noto Sans JP","Yu Gothic UI","Meiryo",system-ui,sans-serif;color:var(--ink);background:var(--bg);font-size:15px;line-height:1.6}
@@ -48,7 +48,7 @@ details summary{cursor:pointer;font-size:13px;color:var(--blue)}
 </style>
 </head>
 <body>
-<div class="top"><b>Kebbi操作デモ</b><span style="font-size:13px;color:#b9c4ce">Kebbi Care DB v3｜架空データ・このブラウザ内だけで動作</span><span style="flex:1"></span><a href="./">デモの説明</a><a href="./admin.html" target="_blank" rel="noopener">管理画面デモを開く</a></div>
+<div class="top"><b>Kebbi操作デモ</b><span style="font-size:13px;color:#b9c4ce">Kebbi Care DB v3.1｜架空データ・このブラウザ内だけで動作</span><span style="flex:1"></span><a href="./">デモの説明</a><a href="./admin.html" target="_blank" rel="noopener">管理画面デモを開く</a></div>
 <div class="wrap">
   <div class="tablet">
     <div class="thead"><div class="face"><i></i><i></i></div><div><b>Kebbi</b><div style="font-size:12px;opacity:.9" id="siteLbl"></div></div><div class="who" id="who"></div></div>
@@ -65,7 +65,9 @@ details summary{cursor:pointer;font-size:13px;color:var(--blue)}
 'use strict';
 var $=function(s){return document.querySelector(s)};
 var esc=function(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})};
-var M=null, staff=null, opened=0, player={on:false};
+var M=null, staff=null, opened=0, player={on:false}, mode='normal';
+function nowJst(){return Utilities.formatDate(new Date(),'Asia/Tokyo',"yyyy-MM-dd'T'HH:mm:ssXXX")}
+function nn(r){return (r.nicknames||[])}
 
 // ---------- API呼び出し（ログ表示つき） ----------
 function api(action,body){
@@ -78,10 +80,10 @@ function api(action,body){
 }
 function loadMasters(){var r=api('masters.get',M?{since_version:M.masters_version}:{});if(r.ok&&!r.unchanged)M=r;$('#siteLbl').textContent=M?M.site.name+' 設置':''}
 function can(p){return staff&&staff[p]}
-function resOptions(sel){return '<option value="">（利用者を選ぶ）</option>'+M.residents.map(function(r){return '<option value="'+esc(r.resident_id)+'"'+(r.resident_id===sel?' selected':'')+'>'+esc(r.resident_id+' '+r.display_name+'（'+r.call_names.join('、')+'）')+'</option>'}).join('')}
+function resOptions(sel){return '<option value="">（利用者を選ぶ）</option>'+M.residents.map(function(r){return '<option value="'+esc(r.resident_id)+'"'+(r.resident_id===sel?' selected':'')+'>'+esc(r.resident_id+' '+r.display_name+'（'+nn(r).join('、')+'）')+'</option>'}).join('')}
 function residentByCallName(s){
   var n=function(x){return String(x||'').replace(/[\s　・]/g,'').replace(/(さん|様|さま)$/,'')};var t=n(s);if(!t)return null;
-  var hits=M.residents.filter(function(r){return r.call_names.concat([r.display_name,r.speech_name]).some(function(c){return c&&n(c)===t})});
+  var hits=M.residents.filter(function(r){return nn(r).concat([r.reading,r.display_name,r.speech_name]).some(function(c){return c&&n(c)===t})});
   return hits.length===1?hits[0].resident_id:null;
 }
 function show(html){$('#screen').innerHTML=html;opened=Date.now()}
@@ -93,10 +95,10 @@ function login(){
   if(player.on)stopPlay();
   staff=null;$('#who').textContent='';
   loadMasters();
-  var list=M.staff.filter(function(s){return s.site_id===M.site.site_id||s.role==='ヘルプ看護師'});
+  var list=M.staff;
   show('<h2>職員ログイン</h2><p style="color:var(--mute);font-size:14px">実機では顔認証またはPINで職員を確定します。デモでは職員を選んでください。役割によってできる操作が変わります（マスタ登録シートの「権限（役割別）」）。</p><div class="staff">'+
-    list.map(function(s){return '<button data-s="'+esc(s.staff_id)+'"><b>'+esc(s.display_name)+'</b> <span style="color:var(--mute);font-size:12px">'+esc(s.staff_id)+'</span><div style="font-size:13px">'+esc(s.role)+'</div><div>'+perms(s)+'</div></button>'}).join('')+'</div>');
-  document.querySelectorAll('[data-s]').forEach(function(b){b.onclick=function(){staff=M.staff.filter(function(s){return s.staff_id===b.dataset.s})[0];$('#who').innerHTML=esc(staff.display_name)+'（'+esc(staff.role)+'）<br><a href="#" id="lo" style="color:#fff">ログアウト</a>';$('#lo').onclick=function(e){e.preventDefault();login()};home()}});
+    list.map(function(s){return '<button data-s="'+esc(s.staff_id)+'"><b>'+esc(s.display_name)+'</b> <span style="color:var(--mute);font-size:12px">'+esc(s.staff_id)+'</span><div style="font-size:13px">'+esc(s.role)+'</div><div>'+perms(s)+'<span class="chip '+(s.display_mode==='easy'?'y':'')+'" style="background:'+(s.display_mode==='easy'?'#fff2cc;color:#7a5a1f':'#eef1f2;color:var(--ink2)')+'">'+(s.display_mode==='easy'?'やさしいモード':'通常モード')+'</span>'+(s.home_office&&s.home_office!==M.site.name?'<div style="font-size:12px;color:var(--mute)">元の所属：'+esc(s.home_office)+'</div>':'')+'</div></button>'}).join('')+'</div>');
+  document.querySelectorAll('[data-s]').forEach(function(b){b.onclick=function(){staff=M.staff.filter(function(s){return s.staff_id===b.dataset.s})[0];mode=staff.display_mode||'normal';$('#who').innerHTML=esc(staff.display_name)+'（'+esc(staff.role)+'）<br><a href="#" id="lo" style="color:#fff">ログアウト</a>';$('#lo').onclick=function(e){e.preventDefault();login()};home()}});
 }
 
 // ---------- ホーム ----------
@@ -117,53 +119,54 @@ function bindBack(){$('#bk').onclick=home}
 
 // ---------- デモ用の簡易AI（実機では国産AIモデルが担当） ----------
 var RULES=[['item_1',/(朝食|昼食|夕食|食事|食べ|摂取|エッセン|ミキサー|ソフト食|半分|割)/],['item_2',/(排泄|排便|排尿|便|尿|トイレ|おむつ|パッド|ハルン|コート|リハパン)/],['item_3',/(睡眠|眠|寝|覚醒|入眠)/],
-  ['item_4',/(SpO2|BP|KT|BT|HR|血圧|体温|脈|酸素|バイタル|サチュ)/],['item_5',/(服薬|内服|薬|インスリン|点眼|軟膏)/],['item_6',/(穏やか|笑顔|不穏|機嫌|落ち着|イライラ|元気|表情|過ごし)/]];
+  ['item_4',/(SpO2|BP|KT|BT|HR|血圧|体温|脈|酸素|バイタル|サチュ)/],['item_5',/(服薬|内服|薬|インスリン|点眼|軟膏)/],['item_6',/(穏やか|笑顔|不穏|機嫌|落ち着|イライラ|元気|表情|過ごし)/],['item_7',/(転倒|皮膚|発赤|受診|褥瘡|けが|怪我|むくみ)/]];
 function demoAI(text){
   var t=String(text||'').trim();
   // 単位（ど・かい・わり 等）や短い読みは普通の言葉の一部と区別できないため置換しない（数値＋単位は下の正規表現で処理）
-  var pairs=[];M.terms.forEach(function(x){if(x.kind==='単位')return;x.readings.forEach(function(r){if(r&&x.display&&r.length>=3&&/^[ァ-ヶー]+$/.test(r)&&x.display.indexOf(r)!==0)pairs.push([r,x.display])})});
+  var pairs=[];M.terms.forEach(function(x){if(x.kind==='単位')return;var d=x.normal.display;x.readings.forEach(function(r){if(r&&d&&r.length>=3&&/^[ァ-ヶー]+$/.test(r)&&d.indexOf(r)!==0)pairs.push([r,d])})});
   pairs.sort(function(a,b){return b[0].length-a[0].length});
   pairs.forEach(function(p){t=t.split(p[0]).join(p[1])});
   t=t.replace(/(\d+)\s*パーセント/g,'$1%').replace(/(\d+)\s*ど(\d)/g,'$1.$2℃').replace(/([A-Za-z][A-Za-z0-9]*)(\d{2,})/g,function(all,w,d){return /^(SpO2|O2)$/.test(w.slice(0,4))?w.slice(0,4)+' '+w.slice(4)+d:all}).replace(/([A-Za-z])(\d)/g,'$1 $2').replace(/\s+/g,' ');
   t=t.replace(/SpO 2/g,'SpO2').replace(/O 2([^\d]|$)/g,'O2$1');
   // 利用者の特定（呼び名・表示名）
   var resident=null;
-  M.residents.forEach(function(r){var names=r.call_names.concat([r.display_name+'さん',r.display_name+'様']);if(names.some(function(c){return c&&text.indexOf(c)>=0})){resident=resident===null||resident===r.resident_id?r.resident_id:'__multi'}});
+  M.residents.forEach(function(r){var names=nn(r).concat([r.display_name+'さん',r.display_name+'様']);if(names.some(function(c){return c&&text.indexOf(c)>=0})){resident=resident===null||resident===r.resident_id?r.resident_id:'__multi'}});
   // 先頭の呼びかけ（「青木さん、」）を本文から除く
-  if(resident&&resident!=='__multi'){var rr=M.residents.filter(function(r){return r.resident_id===resident})[0];rr.call_names.concat([rr.display_name+'さん',rr.display_name+'様']).forEach(function(c){t=t.replace(new RegExp('^'+c.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'[、,\\s]*'),'')})}
+  if(resident&&resident!=='__multi'){var rr=M.residents.filter(function(r){return r.resident_id===resident})[0];nn(rr).concat([rr.display_name+'さん',rr.display_name+'様']).forEach(function(c){t=t.replace(new RegExp('^'+c.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'[、,\\s]*'),'')})}
   var sentences=t.split(/[。\n]/).map(function(x){return x.trim()}).filter(String);
   var items={};
   sentences.forEach(function(sen){sen.split(/[、,]/).map(function(x){return x.trim()}).filter(String).forEach(function(c){
     var hit=false;RULES.forEach(function(r){if(!hit&&r[1].test(c)){items[r[0]]=(items[r[0]]?items[r[0]]+'、':'')+c;hit=true}});
-    if(!hit)items.item_7=(items.item_7?items.item_7+'、':'')+c})});
+    if(!hit)items.item_none=(items.item_none?items.item_none+'、':'')+c})});
   return {summary:sentences.join('。')+(sentences.length?'。':''),items:items,resident:resident==='__multi'?null:resident};
 }
 
 // ---------- 申し送りをする ----------
-var SAMPLES=['青木さん、昼食は8割食べました。午後は穏やかに過ごしています。エスピーオーツー97パーセント。','井口さん、夜間は2回覚醒して、ピートイレを使いました。朝の内服は済んでいます。','上野さん、ビーピー132/80、ケーティー36ど8。少しイライラしていて、夕食は半分でした。'];
+var SAMPLES=['青木さん、昼食は8割食べました。午後は穏やかに過ごしています。エスピーオーツー97パーセント。娘さんが来週来ると話していました。','井口さん、夜間は2回覚醒して、ピートイレを使いました。朝の内服は済んでいます。','上野さん、ビーピー132/80、ケーティー36ど8。少しイライラしていて、夕食は半分でした。'];
 function handover(){
-  var rid='h-'+Utilities.getUuid();
+  var rid='h-'+Utilities.getUuid(),recAt=null,aiAt=null,aiItems=null;
   show(backBtn()+'<h2>申し送りをする</h2>'+
     '<h3>① 話す（実機はKebbiのマイクで録音・音声認識）</h3><div class="row" style="margin-bottom:6px">'+SAMPLES.map(function(s,i){return '<button class="btn" data-sm="'+i+'">例'+(i+1)+'</button>'}).join('')+'</div><textarea id="src" placeholder="音声認識の結果（話した内容）"></textarea>'+
     '<div class="row" style="margin-top:8px"><button class="btn primary" id="ai">国産AIで要約・7項目（デモ）</button><span style="font-size:12px;color:var(--mute)">※デモでは用語登録を使った簡易処理です。実機は東大モデルが masters.get の ai_context を使って処理します。</span></div>'+
     '<details style="margin-top:6px"><summary>国産AIに渡す文脈（ai_context）を見る</summary><pre style="white-space:pre-wrap;font-size:12px;background:#f6f8f8;padding:8px;border-radius:8px;max-height:200px;overflow:auto">'+esc(M.ai_context)+'</pre></details>'+
     '<h3>② 確認する</h3><div class="row"><label class="f">利用者<select id="res">'+resOptions('')+'</select></label><label class="f">呼び名で探す<input type="text" id="call" placeholder="例：あおきさん"></label></div><div id="resMsg"></div>'+
-    '<label class="f" style="margin-top:6px">AI要約<textarea id="sum"></textarea></label>'+
-    '<div class="items" style="margin-top:6px">'+M.items.map(function(it){return '<label class="f">'+esc(it.label)+'<input type="text" data-it="'+it.key+'"></label>'}).join('')+'</div>'+
+    '<label class="f" style="margin-top:6px">AI要約（要約後。話した内容＝要約前も保存されます）<textarea id="sum"></textarea></label>'+
+    '<div style="font-size:13px;color:var(--mute);margin-top:6px">7項目＋該当せず（AIの仕分けを職員が確認・修正。AIの仕分けも別に保存されます）</div><div class="items" style="margin-top:4px">'+M.items.map(function(it){return '<label class="f"'+(it.key==='item_none'?' style="background:#fafaf7"':'')+'>'+esc(it.label)+'<input type="text" data-it="'+it.key+'"></label>'}).join('')+'</div>'+
     '<label class="f" style="margin-top:6px">確定本文（Kebbiが読み上げる文。職員が確認・修正）<textarea id="conf"></textarea></label>'+
     '<h3>③ 保存する</h3><div class="row"><button class="btn" id="sDraft">途中保存</button><button class="btn warn" id="sConf"'+(can('can_confirm')?'':' disabled title="確定権限がありません"')+'>確定して保存</button></div><div id="out"></div>');
   bindBack();
-  document.querySelectorAll('[data-sm]').forEach(function(b){b.onclick=function(){$('#src').value=SAMPLES[+b.dataset.sm]}});
+  document.querySelectorAll('[data-sm]').forEach(function(b){b.onclick=function(){$('#src').value=SAMPLES[+b.dataset.sm];recAt=nowJst()}});
+  $('#src').oninput=function(){if(!recAt)recAt=nowJst()};
   $('#call').oninput=function(){var id=residentByCallName($('#call').value);if(id){$('#res').value=id;note('#resMsg','ok','「'+esc($('#call').value)+'」→ '+esc(id))}else{$('#resMsg').innerHTML=$('#call').value?'<div class="note warn">1人に決まりません。一覧から選んでください。</div>':''}};
   $('#ai').onclick=function(){
     if(!$('#src').value.trim()){note('#out','err','話した内容を入力してください');return}
-    var r=demoAI($('#src').value);$('#sum').value=r.summary;$('#conf').value=r.summary;
+    var r=demoAI($('#src').value);$('#sum').value=r.summary;$('#conf').value=r.summary;aiItems=r.items;aiAt=nowJst();
     document.querySelectorAll('[data-it]').forEach(function(i){i.value=r.items[i.dataset.it]||''});
     if(r.resident){$('#res').value=r.resident;note('#resMsg','ok','AIが利用者を特定：'+esc(r.resident))}else note('#resMsg','warn','利用者を1人に特定できません。一覧から選んでください（推測で割り当てない）。');
   };
   var saveH=function(status){
     var items={};document.querySelectorAll('[data-it]').forEach(function(i){items[i.dataset.it]=i.value});
-    var r=api('records.save',{record:{record_id:rid,type:'handover',status:status,staff_id:staff.staff_id,resident_id:$('#res').value,source_text:$('#src').value,ai_summary:$('#sum').value,confirmed_text:status==='confirmed'?$('#conf').value:'',items:items,duration_sec:Math.round((Date.now()-opened)/1000),ai_model:'Weblab-MedLLM-gpt-oss-120b（デモ）'}});
+    var r=api('records.save',{record:{record_id:rid,type:'handover',status:status,staff_id:staff.staff_id,resident_id:$('#res').value,recorded_at:recAt||nowJst(),source_text:$('#src').value,ai_summary:$('#sum').value,ai_items:aiItems||undefined,ai_processed_at:aiAt||undefined,confirmed_text:status==='confirmed'?$('#conf').value:'',items:items,duration_sec:Math.round((Date.now()-opened)/1000),ai_model:'Weblab-MedLLM-gpt-oss-120b（デモ）'}});
     if(r.ok)note('#out','ok',(status==='confirmed'?'確定して保存しました。':'途中保存しました（確定待ち）。')+'版 '+r.revision+(r.unchanged?'（内容が同じため変更なし）':''));else note('#out','err',esc(r.error.message));
   };
   $('#sDraft').onclick=function(){saveH('draft')};$('#sConf').onclick=function(){saveH('confirmed')};
@@ -171,14 +174,16 @@ function handover(){
 
 // ---------- 申し送りを受ける ----------
 function receive(){
-  var r=api('playback.list',{staff_id:staff.staff_id});
+  var r=api('playback.list',{staff_id:staff.staff_id,mode:mode});
   if(!r.ok){show(backBtn()+'<div class="note err">'+esc(r.error.message)+'</div>');bindBack();return}
   var items=r.items;
   show(backBtn()+'<h2>申し送りを受ける</h2><p style="font-size:14px;color:var(--mute)">'+esc(staff.display_name)+'さんがまだ聞いていない、確定済みの申し送り・連絡事項（古い順）。最後まで読み上げた記録だけを「聞いた」として記録します。</p>'+
+    '<div class="row" style="margin-bottom:8px"><span style="font-size:13px">表示・発話モード：</span><button class="btn'+(r.mode==='normal'?' primary':'')+'" data-md="normal">通常</button><button class="btn'+(r.mode==='easy'?' primary':'')+'" data-md="easy">やさしい</button><span style="font-size:12px;color:var(--mute)">（職員マスタの初期値：'+(staff.display_mode==='easy'?'やさしい':'通常')+'）</span></div>'+
     '<div class="row" style="margin-bottom:10px"><button class="btn primary" id="play"'+(items.length?'':' disabled')+'>▶ 読み上げを始める</button><button class="btn" id="stop" disabled>■ 止める</button><label style="font-size:13px"><input type="checkbox" id="all"> 聞いた記録も表示</label></div><div id="pmsg"></div>'+
     (items.length?items.map(function(x,i){return '<div class="card" id="c'+i+'"><div class="meta">'+esc(x.recorded_at.slice(5,16).replace('T',' '))+'　'+esc(x.type_label)+'　'+esc(x.resident_id?x.resident_id+' '+x.resident_display_name:x.recipient||'')+'<span style="float:right" id="st'+i+'">'+(x.played_at?'聞いた':'')+'</span></div><div>'+esc(x.display_text)+'</div><details><summary>読み上げ文（speech）</summary><div style="font-size:13px">'+esc(x.speech)+'</div></details></div>'}).join(''):'<div class="note ok">新しい申し送り・連絡事項はありません。</div>'));
   bindBack();
-  $('#all').onchange=function(){var rr=api('playback.list',{staff_id:staff.staff_id,unplayed:!$('#all').checked});items=rr.items||[];$('#play').disabled=!items.length;
+  document.querySelectorAll('[data-md]').forEach(function(b){b.onclick=function(){mode=b.dataset.md;receive()}});
+  $('#all').onchange=function(){var rr=api('playback.list',{staff_id:staff.staff_id,mode:mode,unplayed:!$('#all').checked});items=rr.items||[];$('#play').disabled=!items.length;
     document.querySelectorAll('.card').forEach(function(c){c.remove()});$('#pmsg').insertAdjacentHTML('afterend',items.map(function(x,i){return '<div class="card" id="c'+i+'"><div class="meta">'+esc(x.recorded_at.slice(5,16).replace('T',' '))+'　'+esc(x.type_label)+'　'+esc(x.resident_id?x.resident_id+' '+x.resident_display_name:x.recipient||'')+'<span style="float:right" id="st'+i+'">'+(x.played_at?'聞いた':'')+'</span></div><div>'+esc(x.display_text)+'</div></div>'}).join(''))};
   $('#play').onclick=function(){startPlay(items)};$('#stop').onclick=stopPlay;
 }
@@ -193,7 +198,7 @@ function nextPlay(){
   var card=$('#c'+player.i);if(card){card.classList.add('now');card.scrollIntoView({block:'nearest'})}
   var finished=function(ok){
     if(!player.on)return;
-    if(ok){var r=api('playback.done',{record_id:x.record_id,revision:x.revision,staff_id:staff.staff_id});if(r.ok){player.done++;var st=$('#st'+player.i);if(st)st.textContent='聞いた'}}
+    if(ok){var r=api('playback.done',{record_id:x.record_id,revision:x.revision,staff_id:staff.staff_id,played_at:nowJst(),mode:mode});if(r.ok){player.done++;var st=$('#st'+player.i);if(st)st.textContent='聞いた'}}
     nextPlay();
   };
   var voices=('speechSynthesis' in window)?speechSynthesis.getVoices():[];

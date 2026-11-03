@@ -1,11 +1,11 @@
 /*
- * Kebbi Care DB v3 デモ用ランタイム
+ * Kebbi Care DB v3.1 デモ用ランタイム
  * 本番の Apps Script コード（gas-code.js に同梱）を、ブラウザ内の模擬Google環境で動かす。
  * データはこのブラウザの localStorage だけに保存され、どこにも送信されない。架空データのみ。
  */
 (function () {
   'use strict';
-  var STORE = 'kc3demo_v1';
+  var STORE = 'kc3demo_v31';
   var DEMO = window.KC3_DEMO = {
     adminKey: 'demo-admin', viewerKey: 'demo-viewer',
     deviceToken: 'kc3_demo_device_token_yururia_000000000001', deviceId: 'kebbi-yururia-01', siteId: 'yururia'
@@ -123,18 +123,18 @@
     var call = function (action, body) { var r = JSON.parse(doPost({ postData: { contents: JSON.stringify(Object.assign({ token: DEMO.deviceToken, action: action }, body)) } }).getContent()); if (!r.ok) console.error('デモ初期データの登録に失敗', action, r.error); return r; };
     var H = [
       ['demo-handover-1', 300, 'U902', 'S9001', 'confirmed', '夜間は良眠。朝食は全量摂取。SpO2 97%、BP 126/74mmHg。', { item_1: '全量', item_3: '良眠', item_4: 'SpO2 97%、BP 126/74mmHg' }],
-      ['demo-handover-2', 240, 'U903', 'S9001', 'confirmed', '夜間2回覚醒しトイレ誘導。Pトイレ使用。朝食は半量。', { item_1: '半量', item_2: 'Pトイレ使用', item_3: '2回覚醒' }],
-      ['demo-handover-3', 90, 'U901', 'S9002', 'draft', '', { item_1: '8割', item_6: '穏やか' }]
+      ['demo-handover-2', 240, 'U903', 'S9001', 'confirmed', '夜間2回覚醒しトイレ誘導。Pトイレ使用。朝食は半量。ADL変化なし。', { item_1: '半量', item_2: 'Pトイレ使用', item_3: '2回覚醒', item_none: 'ADL変化なし' }],
+      ['demo-handover-3', 90, 'U901', 'S9002', 'draft', '', { item_1: '8割', item_6: '穏やか', item_none: '娘さんが来週来訪予定' }]
     ];
     H.forEach(function (x, i) {
-      call('records.save', { record: { record_id: x[0], type: 'handover', status: x[4], resident_id: x[2], staff_id: x[3], recorded_at: iso(x[1]),
-        source_text: '（音声認識の結果）' + (x[5] || '昼食は8割。午後は穏やかに過ごす'), ai_summary: x[5] || '昼食は8割摂取。午後は穏やかに過ごした。',
-        confirmed_text: x[4] === 'confirmed' ? x[5] : '', items: x[6], duration_sec: 70 + i * 25, ai_model: 'Weblab-MedLLM-gpt-oss-120b（デモ）' } });
+      call('records.save', { record: { record_id: x[0], type: 'handover', status: x[4], resident_id: x[2], staff_id: x[3], recorded_at: iso(x[1]), ai_processed_at: iso(x[1] - 0.3),
+        source_text: '（音声認識の結果）' + (x[5] || '昼食は8割。午後は穏やかに過ごす。娘さんが来週来るって'), ai_summary: x[5] || '昼食は8割摂取。午後は穏やかに過ごした。娘さんが来週来訪予定。',
+        confirmed_text: x[4] === 'confirmed' ? x[5] : '', items: x[6], ai_items: x[6], duration_sec: 70 + i * 25, ai_model: 'Weblab-MedLLM-gpt-oss-120b（デモ）' } });
     });
     call('records.save', { record: { record_id: 'demo-notice-1', type: 'notice', status: 'confirmed', staff_id: 'S9001', recorded_at: iso(120), confirmed_text: '本日15時に上野様のご家族が来訪予定です。居室の準備をお願いします。', recipient: '日勤者' } });
     call('records.save', { record: { record_id: 'demo-health-1', type: 'health', status: 'confirmed', resident_id: 'U901', staff_id: 'S9001', recorded_at: iso(60 * 26),
       source_text: '体調：良い\n痛み：なし\n食欲：ある', confirmed_text: '体調良好。痛みなし。食欲あり。' } });
-    call('playback.done', { record_id: 'demo-handover-1', revision: 1, staff_id: 'S9004' });
+    call('playback.done', { record_id: 'demo-handover-1', revision: 1, staff_id: 'S9004', played_at: iso(200), mode: 'normal' });
     save();
   }
 

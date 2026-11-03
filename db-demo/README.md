@@ -1,4 +1,4 @@
-# Kebbi Care DB v3 デモ
+# Kebbi Care DB v3.1 デモ
 
 公開URL：https://c7313y-rgb.github.io/kebbi-care/db-demo/
 
