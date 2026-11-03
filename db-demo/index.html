@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Kebbi Care DB v3.1 デモ</title>
+<title>Kebbi Care DB v3.2 デモ</title>
 <style>
 :root{--ink:#1d2b3a;--mute:#6a7682;--line:#dfe3e6;--bg:#f4f5f2;--teal:#1f7a72;--orange:#c95a24;--blue:#2a5d9f}
 *{box-sizing:border-box}body{margin:0;font-family:"Hiragino Sans","Noto Sans JP","Yu Gothic UI","Meiryo",system-ui,sans-serif;color:var(--ink);background:var(--bg);line-height:1.7}
@@ -22,12 +22,12 @@ table{border-collapse:collapse;width:100%;font-size:14px}td,th{border-bottom:1px
 </style>
 </head>
 <body>
-<header><h1>Kebbi Care DB v3.1 デモ</h1><p>ゆるり・あ鶴舞 の申し送り・7項目＋該当せず・健康チェック・連絡事項の「保存・再生・CSV取得」を、ブラウザだけで試せます。</p></header>
+<header><h1>Kebbi Care DB v3.2 デモ</h1><p>ゆるり・あ鶴舞 の申し送り・7項目＋該当せず・健康チェック・連絡事項の「保存・再生・CSV取得」を、ブラウザだけで試せます。</p></header>
 <main>
   <div class="warn">このデモは<b>架空の利用者・職員</b>で動きます。入力した内容はこのブラウザ内（localStorage）だけに保存され、どこにも送信されません。<b>実在の方の情報は入力しないでください。</b></div>
   <div class="grid" style="margin-top:16px">
     <div class="card"><h2>① Kebbi操作デモ</h2><p>職員としてログインし、申し送りをする・受ける（読み上げ）・健康チェック・連絡・確定待ちの確定を試せます。右側にKebbiとAPIの通信内容が出ます。</p><a class="btn k" href="kebbi.html">Kebbi操作デモを開く</a></div>
-    <div class="card"><h2>② 管理画面デモ</h2><p>記録の確認（要約前後・AI仕分けと確定後・操作履歴）・確定・訂正、再生状況、集計、CSV出力、マスタ（XLSX）取込と手入力、端末登録、7項目名・氏名送信の設定を試せます。</p><p>管理キー <code>demo-admin</code>　閲覧キー <code>demo-viewer</code></p><a class="btn a" href="admin.html">管理画面デモを開く</a></div>
+    <div class="card"><h2>② 管理画面デモ</h2><p>記録の確認（要約前後・AI仕分けと確定後・操作履歴）・確定・訂正、再生状況、集計、CSV出力、マスタ（XLSX）取込と手入力、職員の顔画像の登録、端末登録、7項目名・氏名送信・顔画像配信の設定を試せます。</p><p>管理キー <code>demo-admin</code>　閲覧キー <code>demo-viewer</code></p><a class="btn a" href="admin.html">管理画面デモを開く</a></div>
   </div>
   <div class="card" style="margin-top:16px">
     <h2>おすすめの試し方（約5分）</h2>
@@ -36,6 +36,7 @@ table{border-collapse:collapse;width:100%;font-size:14px}td,th{border-bottom:1px
       <li>ログアウトして <b>職員A（確定担当）</b> を選び、「確定待ち」で今の記録を確定</li>
       <li>ログアウトして <b>職員C（外国人職員）</b> を選び、「申し送りを受ける」→「読み上げを始める」。やさしいモードで「SpO2（酸素飽和度）」のように説明つきで表示・発話します（端末のスピーカーで読み上げ。最後まで聞いた記録だけ「聞いた」になります）。「通常」に切り替えて違いも確認できます</li>
       <li>管理画面デモ（<code>demo-admin</code>）で「記録」から今の記録を開くと、①要約前 → ②要約後 → ③確定本文、7項目＋該当せず（AIの仕分けと確定後）、記録・AI処理・確定・再生の日時と操作履歴を確認できます。「CSV出力」で記録・操作履歴をダウンロード</li>
+      <li>「顔画像」で <a href="sample/faces/9004.JPG">9004.JPG</a>・<a href="sample/faces/9005.jpg">9005.jpg</a>（図形で作った架空の画像。保存してから選ぶ）をまとめて選ぶと、ファイル名の番号で職員に結び付き、縮小・位置情報の除去をして登録します。Kebbi操作デモのログイン画面に、配信された顔画像が表示されます</li>
       <li>「マスタ」→ 利用者で 氏名・ニックネームを、用語で 通常／やさしい の発話を編集できます（下線の項目をクリック）。「設定」で氏名をKebbiへ送るかを切り替えます（初期値：送らない）</li>
       <li>「マスタ」で <a href="sample/masters_fictional.xlsx">架空のマスタ登録シート（XLSX）</a> を選ぶと、取込前の確認と取込を試せます</li>
     </ol>
@@ -48,14 +49,15 @@ table{border-collapse:collapse;width:100%;font-size:14px}td,th{border-bottom:1px
       <tr><td>API・管理画面のプログラム</td><td colspan="2">同じもの（Apps Scriptのコードをブラウザで動かしています）</td></tr>
       <tr><td>国産AIの要約・7項目＋該当せず</td><td>用語登録を使った簡易処理</td><td>東大モデル（Kebbi側で実装済み）</td></tr>
       <tr><td>読み上げ</td><td>ブラウザの音声合成</td><td>Kebbiの音声合成（NUWA SDK）</td></tr>
-      <tr><td>ログイン</td><td>職員を選ぶ</td><td>顔認証・PIN（Kebbi側）</td></tr>
+      <tr><td>ログイン</td><td>職員を選ぶ（配信された顔画像を表示）</td><td>顔認証・PIN（Kebbi側。顔画像は FaceSync で受信）</td></tr>
+      <tr><td>顔画像</td><td>図形で作った架空の画像。ブラウザ内に保存</td><td>Googleドライブの専用フォルダ（共有しない）。配信は初期値オフ</td></tr>
     </table>
     <p style="margin-top:14px"><button id="reset">デモのデータを初期状態に戻す</button> <span id="rmsg" style="font-size:14px;color:var(--mute)"></span></p>
   </div>
   <p style="font-size:13px;color:var(--mute)">2026-11-03　Edutex株式会社｜GENIAC-PRIZE 2026 Kebbi Care Shift OS 実証用</p>
 </main>
 <script>
-document.getElementById('reset').onclick=function(){try{localStorage.removeItem('kc3demo_v31')}catch(e){}document.getElementById('rmsg').textContent='初期状態に戻しました。次にデモを開くと最初のデータから始まります。'};
+document.getElementById('reset').onclick=function(){try{localStorage.removeItem('kc3demo_v32')}catch(e){}document.getElementById('rmsg').textContent='初期状態に戻しました。次にデモを開くと最初のデータから始まります。'};
 </script>
 </body>
 </html>

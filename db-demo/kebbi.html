@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Kebbi操作デモ｜Kebbi Care DB v3.1</title>
+<title>Kebbi操作デモ｜Kebbi Care DB v3.2</title>
 <style>
 :root{--ink:#1d2b3a;--ink2:#3d4c5a;--mute:#6a7682;--line:#dfe3e6;--bg:#eef1ee;--teal:#1f7a72;--teal-bg:#e3efed;--orange:#c95a24;--orange-bg:#f8e7dc;--blue:#2a5d9f;--blue-bg:#e2ebf6;--purple:#6a4c93;--purple-bg:#ece4f5;--red:#b3261e;--red-bg:#f9e2e0;--ok:#2e7d32}
 *{box-sizing:border-box}body{margin:0;font-family:"Hiragino Sans","Noto Sans JP","Yu Gothic UI","Meiryo",system-ui,sans-serif;color:var(--ink);background:var(--bg);font-size:15px;line-height:1.6}
@@ -48,7 +48,7 @@ details summary{cursor:pointer;font-size:13px;color:var(--blue)}
 </style>
 </head>
 <body>
-<div class="top"><b>Kebbi操作デモ</b><span style="font-size:13px;color:#b9c4ce">Kebbi Care DB v3.1｜架空データ・このブラウザ内だけで動作</span><span style="flex:1"></span><a href="./">デモの説明</a><a href="./admin.html" target="_blank" rel="noopener">管理画面デモを開く</a></div>
+<div class="top"><b>Kebbi操作デモ</b><span style="font-size:13px;color:#b9c4ce">Kebbi Care DB v3.2｜架空データ・このブラウザ内だけで動作</span><span style="flex:1"></span><a href="./">デモの説明</a><a href="./admin.html" target="_blank" rel="noopener">管理画面デモを開く</a></div>
 <div class="wrap">
   <div class="tablet">
     <div class="thead"><div class="face"><i></i><i></i></div><div><b>Kebbi</b><div style="font-size:12px;opacity:.9" id="siteLbl"></div></div><div class="who" id="who"></div></div>
@@ -65,7 +65,7 @@ details summary{cursor:pointer;font-size:13px;color:var(--blue)}
 'use strict';
 var $=function(s){return document.querySelector(s)};
 var esc=function(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})};
-var M=null, staff=null, opened=0, player={on:false}, mode='normal';
+var M=null, staff=null, opened=0, player={on:false}, mode='normal', FACES={};
 function nowJst(){return Utilities.formatDate(new Date(),'Asia/Tokyo',"yyyy-MM-dd'T'HH:mm:ssXXX")}
 function nn(r){return (r.nicknames||[])}
 
@@ -96,8 +96,12 @@ function login(){
   staff=null;$('#who').textContent='';
   loadMasters();
   var list=M.staff;
-  show('<h2>職員ログイン</h2><p style="color:var(--mute);font-size:14px">実機では顔認証またはPINで職員を確定します。デモでは職員を選んでください。役割によってできる操作が変わります（マスタ登録シートの「権限（役割別）」）。</p><div class="staff">'+
-    list.map(function(s){return '<button data-s="'+esc(s.staff_id)+'"><b>'+esc(s.display_name)+'</b> <span style="color:var(--mute);font-size:12px">'+esc(s.staff_id)+'</span><div style="font-size:13px">'+esc(s.role)+'</div><div>'+perms(s)+'<span class="chip '+(s.display_mode==='easy'?'y':'')+'" style="background:'+(s.display_mode==='easy'?'#fff2cc;color:#7a5a1f':'#eef1f2;color:var(--ink2)')+'">'+(s.display_mode==='easy'?'やさしいモード':'通常モード')+'</span>'+(s.home_office&&s.home_office!==M.site.name?'<div style="font-size:12px;color:var(--mute)">元の所属：'+esc(s.home_office)+'</div>':'')+'</div></button>'}).join('')+'</div>');
+  // 顔画像（管理画面で登録・配信を有効にした職員）。実機は FaceSync で顔認証エンジンに登録する
+  var fl=api('faces.list',{}),faceImg={};
+  if(fl.ok&&fl.enabled)fl.faces.forEach(function(f){if(FACES[f.staff_id]&&FACES[f.staff_id].sha===f.sha256)return;var g=api('faces.get',{staff_id:f.staff_id});if(g.ok)FACES[f.staff_id]={sha:f.sha256,url:'data:image/jpeg;base64,'+g.data_base64}});
+  Object.keys(FACES).forEach(function(id){if(!(fl.ok&&fl.enabled&&fl.faces.some(function(f){return f.staff_id===id})))delete FACES[id]});
+  show('<h2>職員ログイン</h2><p style="color:var(--mute);font-size:14px">実機では顔認証またはPINで職員を確定します。デモでは職員を選んでください。役割によってできる操作が変わります（マスタ登録シートの「権限（役割別）」）。<br>顔画像：'+(fl.ok&&fl.enabled?Object.keys(FACES).length+' 名分を受信（faces.list → faces.get。画像は図形の架空データ）':'配信が無効のため受信していません（顔認証は使えず、PIN等で確認）')+'</p><div class="staff">'+
+    list.map(function(s){return '<button data-s="'+esc(s.staff_id)+'">'+(FACES[s.staff_id]?'<img src="'+FACES[s.staff_id].url+'" alt="" style="float:right;width:44px;height:52px;object-fit:cover;border-radius:8px;margin-left:6px" data-face="'+esc(s.staff_id)+'">':'<span style="float:right;font-size:11px;color:var(--mute)">顔画像なし</span>')+'<b>'+esc(s.display_name)+'</b> <span style="color:var(--mute);font-size:12px">'+esc(s.staff_id)+'</span><div style="font-size:13px">'+esc(s.role)+'</div><div>'+perms(s)+'<span class="chip '+(s.display_mode==='easy'?'y':'')+'" style="background:'+(s.display_mode==='easy'?'#fff2cc;color:#7a5a1f':'#eef1f2;color:var(--ink2)')+'">'+(s.display_mode==='easy'?'やさしいモード':'通常モード')+'</span>'+(s.home_office&&s.home_office!==M.site.name?'<div style="font-size:12px;color:var(--mute)">元の所属：'+esc(s.home_office)+'</div>':'')+'</div></button>'}).join('')+'</div>');
   document.querySelectorAll('[data-s]').forEach(function(b){b.onclick=function(){staff=M.staff.filter(function(s){return s.staff_id===b.dataset.s})[0];mode=staff.display_mode||'normal';$('#who').innerHTML=esc(staff.display_name)+'（'+esc(staff.role)+'）<br><a href="#" id="lo" style="color:#fff">ログアウト</a>';$('#lo').onclick=function(e){e.preventDefault();login()};home()}});
 }
 

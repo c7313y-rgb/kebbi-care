@@ -1,11 +1,11 @@
 /*
- * Kebbi Care DB v3.1 デモ用ランタイム
+ * Kebbi Care DB v3.2 デモ用ランタイム
  * 本番の Apps Script コード（gas-code.js に同梱）を、ブラウザ内の模擬Google環境で動かす。
  * データはこのブラウザの localStorage だけに保存され、どこにも送信されない。架空データのみ。
  */
 (function () {
   'use strict';
-  var STORE = 'kc3demo_v31';
+  var STORE = 'kc3demo_v32';
   var DEMO = window.KC3_DEMO = {
     adminKey: 'demo-admin', viewerKey: 'demo-viewer',
     deviceToken: 'kc3_demo_device_token_yururia_000000000001', deviceId: 'kebbi-yururia-01', siteId: 'yururia'
@@ -13,7 +13,7 @@
 
   // ---------- SHA-256（同期版。Utilities.computeDigest の代わり） ----------
   function sha256Bytes(str) {
-    var bytes = new TextEncoder().encode(str);
+    var bytes = Array.isArray(str) ? Uint8Array.from(str.map(function (b) { return (b + 256) % 256; })) : new TextEncoder().encode(str);
     var K = [0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5, 0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174, 0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da, 0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967, 0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85, 0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070, 0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3, 0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2];
     var H = [0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19];
     var l = bytes.length, withPad = ((l + 9 + 63) >> 6) << 6, m = new Uint8Array(withPad);
@@ -95,14 +95,33 @@
 
   window.PropertiesService = { getScriptProperties: function () { return { getProperty: function (k) { return state.props[k] || null; }, setProperty: function (k, v) { state.props[k] = String(v); } }; } };
   window.SpreadsheetApp = { create: function () { return SS; }, openById: function () { return SS; } };
-  window.DriveApp = { getFileById: function () { return { moveTo: function () {} }; }, getFolderById: function () { return {}; } };
+  // ドライブの模擬（顔画像の保存先）。中身は base64 文字列で localStorage に保存
+  function b64ToBytes(b64) { var bin = atob(b64), out = new Array(bin.length); for (var i = 0; i < bin.length; i++) { var v = bin.charCodeAt(i); out[i] = v > 127 ? v - 256 : v; } return out; }
+  function bytesToB64(bytes) { var s = '', CH = 0x8000; for (var i = 0; i < bytes.length; i += CH) s += String.fromCharCode.apply(null, bytes.slice(i, i + CH).map(function (b) { return (b + 256) % 256; })); return btoa(s); }
+  function drive() { if (!state.drive) state.drive = { files: {}, n: 0 }; return state.drive; }
+  function mkFolder(name, id) {
+    return { getId: function () { return id; }, getName: function () { return name; }, createFolder: function (n) { var d = drive(); return mkFolder(n, 'FOLDER_' + (++d.n)); },
+      createFile: function (blob) { var d = drive(), fid = 'FILE_' + (++d.n); d.files[fid] = { b64: bytesToB64(blob.getBytes()), trashed: false }; return { getId: function () { return fid; } }; } };
+  }
+  window.DriveApp = {
+    createFolder: function (n) { var d = drive(); return mkFolder(n, 'FOLDER_' + (++d.n)); },
+    getFolderById: function (id) { return mkFolder('Kebbi_Care_顔画像（取扱注意）', id); },
+    getFileById: function (id) {
+      var f = drive().files[id];
+      return { moveTo: function () {}, setTrashed: function (t) { if (f) { if (t) delete drive().files[id]; } },
+        getBlob: function () { if (!f) throw new Error('file not found'); return { getBytes: function () { return b64ToBytes(f.b64); } }; } };
+    }
+  };
   window.LockService = { getScriptLock: function () { return { tryLock: function () { return true; }, waitLock: function () {}, releaseLock: function () {} }; } };
   window.CacheService = { getScriptCache: function () { return { get: function (k) { return k in memCache ? memCache[k] : null; }, put: function (k, v) { memCache[k] = v; }, remove: function (k) { delete memCache[k]; } }; } };
   window.Utilities = {
     formatDate: fmt,
     getUuid: function () { return (crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) { var r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 3 | 8)).toString(16); })); },
     DigestAlgorithm: { SHA_256: 'sha256' }, Charset: { UTF_8: 'utf8' },
-    computeDigest: function (alg, s) { return sha256Bytes(String(s)); }
+    computeDigest: function (alg, s) { return sha256Bytes(Array.isArray(s) ? s : String(s)); },
+    base64Decode: function (s) { return b64ToBytes(String(s).replace(/\s/g, '')); },
+    base64Encode: function (bytes) { return bytesToB64(bytes); },
+    newBlob: function (bytes, mime, name) { return { getBytes: function () { return bytes.slice(); }, getContentType: function () { return mime; }, getName: function () { return name; } }; }
   };
   window.ContentService = { createTextOutput: function (c) { return { c: c, getContent: function () { return this.c; }, setMimeType: function () { return this; } }; }, MimeType: { JSON: 'json' } };
   window.ScriptApp = { getService: function () { return { getUrl: function () { return location.href.replace(/[^/]*$/, '') + 'kebbi.html'; } }; } };
@@ -134,6 +153,9 @@
     call('records.save', { record: { record_id: 'demo-notice-1', type: 'notice', status: 'confirmed', staff_id: 'S9001', recorded_at: iso(120), confirmed_text: '本日15時に上野様のご家族が来訪予定です。居室の準備をお願いします。', recipient: '日勤者' } });
     call('records.save', { record: { record_id: 'demo-health-1', type: 'health', status: 'confirmed', resident_id: 'U901', staff_id: 'S9001', recorded_at: iso(60 * 26),
       source_text: '体調：良い\n痛み：なし\n食欲：ある', confirmed_text: '体調良好。痛みなし。食欲あり。' } });
+    // 架空の顔画像（図形で作ったもの。実在の人物ではない）
+    (window.KC3_DEMO_FACES || []).forEach(function (f) { try { uploadFace_(f.staff_id, f.b64, f.name); } catch (e) { console.error('デモの顔画像を登録できません', e); } });
+    setSetting_('face_sync_to_device', true);
     call('playback.done', { record_id: 'demo-handover-1', revision: 1, staff_id: 'S9004', played_at: iso(200), mode: 'normal' });
     save();
   }

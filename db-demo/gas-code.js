@@ -1,4 +1,4 @@
-/* Kebbi Care DB v3.1 Apps Script（本番コードをそのまま同梱） */
+/* Kebbi Care DB v3.2 Apps Script（本番コードをそのまま同梱） */
 // ===== Store.gs（本番と同一） =====
 /**
  * Store.gs — スプレッドシートの読み書き（Kebbi Care DB v3）
@@ -6,7 +6,7 @@
  */
 
 var TZ_ = 'Asia/Tokyo';
-var API_VERSION_ = '3.1';
+var API_VERSION_ = '3.2';
 
 var REC_COLS_ = ['record_id', 'revision', 'site_id', 'type', 'status', 'resident_id', 'staff_id', 'recorded_at',
   'source_text', 'ai_summary', 'confirmed_text', 'item_1', 'item_2', 'item_3', 'item_4', 'item_5', 'item_6', 'item_7', 'item_none',
@@ -23,6 +23,7 @@ var SCHEMA_ = {
   roles: ['role', 'scope', 'can_input', 'can_confirm', 'can_view', 'can_play', 'note'],
   terms: ['term_id', 'kind', 'readings', 'normal_display', 'normal_speech', 'easy_display', 'easy_speech', 'note'],
   overrides: ['entity', 'key', 'field', 'value', 'updated_at'],
+  faces: ['staff_id', 'file_id', 'sha256', 'bytes', 'width', 'height', 'source_name', 'uploaded_at', 'uploaded_by'],
   sites: ['site_id', 'name', 'aliases'],
   devices: ['device_id', 'site_id', 'label', 'token_hash', 'active', 'created_at', 'last_seen_at'],
   settings: ['key', 'value'],
@@ -209,7 +210,7 @@ function defaultEasySpeech_(easyDisplay, normalDisplay, normalSpeech, readings) 
   var m = e.match(/^(.*?)（(.*)）$/) || e.match(/^(.*?)\((.*)\)$/);
   var main = m ? m[1].trim() : e, gloss = m ? m[2].trim() : '';
   var mainSpeech = main === normalDisplay ? normalSpeech : defaultNormalSpeech_(main, readings);
-  return gloss ? mainSpeech + '、' + gloss : mainSpeech;
+  return gloss && gloss !== mainSpeech ? mainSpeech + '、' + gloss : mainSpeech;
 }
 
 /** 2次元配列のシート群 → マスタ（取込前のプレビュー兼用） */
@@ -337,7 +338,10 @@ function convertWorkbook_(sheets) {
       if (!t.easy_display) t.easy_display = t.normal_display;
       t.normal_speech = defaultNormalSpeech_(t.normal_display, t.readings);
       t.easy_speech = defaultEasySpeech_(t.easy_display, t.normal_display, t.normal_speech, t.readings);
-      if (/ひらがな指定/.test(t.note)) hira.push(t.normal_display);
+      // やさしい表示が「褥瘡（じょくそう）」のように ひらがなの読み を添えた形なら、その読みを両モードの発話にする
+      var gm = t.easy_display.match(/^(.*?)[（(]([ぁ-ゖー\s]+)[）)]$/);
+      if (gm && gm[1].trim() === t.normal_display) { t.normal_speech = t.easy_speech = gm[2].replace(/\s/g, ''); }
+      else if (/ひらがな指定/.test(t.note)) hira.push(t.normal_display);
       terms.push(t);
     }
     if (hira.length) warn.push('「読み上げはひらがな指定」の用語 ' + hira.length + ' 件（' + hira.join('・') + '）は、ひらがなの読みがXLSXにありません。管理画面「マスタ」の通常発話・やさしい発話に入力してください');
@@ -477,7 +481,7 @@ function mastersForDevice_(m) {
 
 // ===== Code.gs（本番と同一） =====
 /**
- * Code.gs — Kebbi Care DB v3 API（Kebbi端末用）と管理画面の入口
+ * Code.gs — Kebbi Care DB v3.2 API（Kebbi端末用）と管理画面の入口
  *
  * Kebbi端末：POST（JSON）。{ "token": 端末トークン, "action": "...", ...パラメータ }
  * 管理画面：GET（ブラウザで開く）。アクセスキーで認証。
@@ -537,6 +541,8 @@ function handle_(dev, action, b) {
     case 'records.list': return listRecords_(dev, b);
     case 'playback.list': return playbackList_(dev, b);
     case 'playback.done': return withLock_(function () { return playbackDone_(dev, b); });
+    case 'faces.list': return facesList_(dev);
+    case 'faces.get': return faceGet_(dev, b);
     default: throw apiError_('UNKNOWN_ACTION', '不明な action：' + action);
   }
 }
@@ -824,7 +830,7 @@ function needAdmin_(key) { if (role_(key) !== 'admin') throw new Error('この�
 function adminLogin(key) {
   var role = role_(key);
   var m = loadMasters_();
-  return { role: role, sites: m.sites, items: m.items, item_none_label: ITEM_NONE_LABEL_, types: TYPES_, send_full_name: m.send_full_name, staff: m.staff.filter(isActive_).map(function (s) {
+  return { role: role, sites: m.sites, items: m.items, item_none_label: ITEM_NONE_LABEL_, types: TYPES_, send_full_name: m.send_full_name, face_sync: role === 'admin' ? faceSyncOn_() : false, staff: m.staff.filter(isActive_).map(function (s) {
     return { staff_id: s.staff_id, display_name: s.display_name, site_id: s.site_id, can_confirm: s.can_confirm === '1' };
   }), residents: m.residents.map(function (r) { return { resident_id: r.resident_id, display_name: r.display_name, full_name: role === 'admin' ? r.full_name : '', site_id: r.site_id }; }) };
 }
@@ -1041,11 +1047,173 @@ function adminSaveItemLabels(key, labels) {
   return clean;
 }
 
+// ===== Faces.gs（本番と同一） =====
+/**
+ * Faces.gs — 職員の顔画像（Kebbiの顔認証に使う登録画像）
+ *
+ * 保存先：Googleドライブの専用フォルダ（「Kebbi_Care_顔画像（取扱注意）」。共有しない）。
+ *         スプレッドシートの faces シートには、ファイルID・ハッシュ・大きさ・登録日時だけを持つ。
+ * 登録：管理画面（管理キー）から。ブラウザで縮小・再圧縮してから送るため、撮影日時・位置情報（GPS）などのメタデータは残らない。
+ *       メタデータ（Exif）が残った画像はサーバー側でも拒否する。
+ * Kebbiへの配信：管理画面「設定」で「顔画像をKebbiへ配信する」を有効にしたときだけ（初期値：配信しない）。
+ *       faces.list で一覧（職員ID・ハッシュ）、faces.get で1人分の画像（base64）。配信は操作履歴に残る。
+ * 利用者の顔画像は扱わない（職員のログイン用のみ）。
+ */
+
+var FACE_MAX_BYTES_ = 400 * 1024;
+var FACE_MIN_PX_ = 160, FACE_MAX_PX_ = 1600;
+var FACE_FOLDER_NAME_ = 'Kebbi_Care_顔画像（取扱注意）';
+
+function faceFolder_() {
+  var p = PropertiesService.getScriptProperties();
+  var id = p.getProperty('FACE_FOLDER_ID');
+  if (id) { try { return DriveApp.getFolderById(id); } catch (e) { /* 削除されていれば作り直す */ } }
+  var parent = null, pid = p.getProperty('FOLDER_ID');
+  if (pid) { try { parent = DriveApp.getFolderById(pid); } catch (e) { parent = null; } }
+  var f = (parent || DriveApp).createFolder(FACE_FOLDER_NAME_);
+  p.setProperty('FACE_FOLDER_ID', f.getId());
+  return f;
+}
+
+function faceSyncOn_() { return getSetting_('face_sync_to_device', false) === true; }
+
+function bytesHex_(bytes) {
+  return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, bytes).map(function (b) { return ((b + 256) % 256).toString(16).replace(/^(.)$/, '0$1'); }).join('');
+}
+
+/** JPEGか、Exif（撮影情報・位置情報）が残っていないか、縦横の画素数を調べる */
+function inspectJpeg_(bytes) {
+  var u = function (i) { return (bytes[i] + 256) % 256; };
+  if (bytes.length < 4 || u(0) !== 0xFF || u(1) !== 0xD8) throw new Error('JPEG画像ではありません');
+  var i = 2, w = 0, h = 0;
+  while (i + 4 < bytes.length) {
+    if (u(i) !== 0xFF) throw new Error('JPEG画像を読み取れません');
+    var mk = u(i + 1);
+    if (mk === 0xD9 || mk === 0xDA) break;              // 画像データの開始・終了
+    var len = (u(i + 2) << 8) | u(i + 3);
+    if (mk === 0xE1) throw new Error('撮影情報（Exif・位置情報など）が残っています。管理画面から登録してください（自動で取り除きます）');
+    if (mk >= 0xC0 && mk <= 0xCF && mk !== 0xC4 && mk !== 0xC8 && mk !== 0xCC) { h = (u(i + 5) << 8) | u(i + 6); w = (u(i + 7) << 8) | u(i + 8); }
+    i += 2 + len;
+  }
+  if (!w || !h) throw new Error('画像の大きさを読み取れません');
+  if (Math.min(w, h) < FACE_MIN_PX_ || Math.max(w, h) > FACE_MAX_PX_) throw new Error('画像の大きさは短い辺 ' + FACE_MIN_PX_ + 'px 以上・長い辺 ' + FACE_MAX_PX_ + 'px 以下にしてください（' + w + '×' + h + '）');
+  return { width: w, height: h };
+}
+
+function faceRow_(staffId) {
+  var t = readTable_('faces');
+  for (var i = 0; i < t.rows.length; i++) if (t.rows[i].staff_id === staffId) return { row: t.rows[i], rowNo: t.rowNo[i] };
+  return null;
+}
+
+/** 管理画面：顔画像の登録・差し替え。base64 は JPEG（data URL の場合は先頭を除く） */
+function adminUploadFace(key, staffId, base64, sourceName) {
+  needAdmin_(key);
+  return uploadFace_(staffId, base64, sourceName);
+}
+
+function uploadFace_(staffId, base64, sourceName) {
+  staffId = str_(staffId).trim();
+  var m = loadMasters_();
+  if (!findStaff_(m, staffId)) throw new Error('職員ID「' + staffId + '」が職員マスタにありません');
+  var bytes = Utilities.base64Decode(str_(base64).replace(/^data:image\/jpeg;base64,/, ''));
+  if (bytes.length > FACE_MAX_BYTES_) throw new Error('画像が大きすぎます（' + Math.round(bytes.length / 1024) + 'KB。' + FACE_MAX_BYTES_ / 1024 + 'KB まで）');
+  var dim = inspectJpeg_(bytes);
+  var sha = bytesHex_(bytes);
+  return withLock_(function () {
+    var cur = faceRow_(staffId);
+    if (cur && cur.row.sha256 === sha) return { staff_id: staffId, sha256: sha, unchanged: true };
+    var file = faceFolder_().createFile(Utilities.newBlob(bytes, 'image/jpeg', staffId + '.jpg'));
+    var row = { staff_id: staffId, file_id: file.getId(), sha256: sha, bytes: String(bytes.length), width: String(dim.width), height: String(dim.height),
+      source_name: str_(sourceName).slice(0, 120), uploaded_at: nowIso_(), uploaded_by: 'admin' };
+    if (cur) {
+      try { DriveApp.getFileById(cur.row.file_id).setTrashed(true); } catch (e) { /* 既に無い */ }
+      writeRow_('faces', cur.rowNo, row);
+    } else appendRows_('faces', [row]);
+    logEvent_(cur ? '顔画像の差し替え' : '顔画像の登録', { staff_id: staffId, detail: row.width + '×' + row.height + ' ' + Math.round(bytes.length / 1024) + 'KB' });
+    return { staff_id: staffId, sha256: sha, created: !cur, updated: !!cur };
+  });
+}
+
+/** 管理画面：登録状況（管理キーのみ。閲覧キーでは見られない） */
+function adminFaces(key) {
+  needAdmin_(key);
+  var m = loadMasters_();
+  var faces = readTable_('faces').rows;
+  var by = {}; faces.forEach(function (f) { by[f.staff_id] = f; });
+  return {
+    sync: faceSyncOn_(),
+    staff: m.staff.map(function (s) {
+      var f = by[s.staff_id];
+      return { staff_id: s.staff_id, display_name: s.display_name, role: s.role, home_office: s.home_office, active: isActive_(s),
+        has_face: !!f, uploaded_at: f ? f.uploaded_at : '', width: f ? f.width : '', height: f ? f.height : '', bytes: f ? f.bytes : '', sha256: f ? f.sha256 : '' };
+    }),
+    orphans: faces.filter(function (f) { return !findStaff_(m, f.staff_id); }).map(function (f) { return f.staff_id; })
+  };
+}
+
+/** 管理画面：確認用に画像を表示する（管理キーのみ） */
+function adminFaceImage(key, staffId) {
+  needAdmin_(key);
+  var cur = faceRow_(str_(staffId));
+  if (!cur) throw new Error('顔画像が登録されていません');
+  return 'data:image/jpeg;base64,' + Utilities.base64Encode(DriveApp.getFileById(cur.row.file_id).getBlob().getBytes());
+}
+
+/** 管理画面：顔画像の削除（ドライブのファイルはごみ箱へ） */
+function adminDeleteFace(key, staffId) {
+  needAdmin_(key);
+  return deleteFace_(staffId);
+}
+
+function deleteFace_(staffId) {
+  staffId = str_(staffId);
+  return withLock_(function () {
+    var cur = faceRow_(staffId);
+    if (!cur) return false;
+    try { DriveApp.getFileById(cur.row.file_id).setTrashed(true); } catch (e) { /* 既に無い */ }
+    sheet_('faces').deleteRow(cur.rowNo);
+    logEvent_('顔画像の削除', { staff_id: staffId });
+    return true;
+  });
+}
+
+/** 顔画像をKebbiへ配信するか（初期値：配信しない） */
+function adminSetFaceSync(key, on) {
+  needAdmin_(key);
+  setSetting_('face_sync_to_device', on === true);
+  logEvent_('設定変更', { detail: '顔画像のKebbi配信：' + (on === true ? 'する' : 'しない') });
+  return on === true;
+}
+
+// ---------- Kebbi端末用 ----------
+function facesList_(dev) {
+  if (!faceSyncOn_()) return { enabled: false, faces: [] };
+  var m = loadMasters_();
+  var faces = readTable_('faces').rows;
+  return { enabled: true, faces: faces.map(function (f) {
+    var s = findStaff_(m, f.staff_id);
+    if (!s || !isActive_(s)) return null;
+    return { staff_id: f.staff_id, display_name: s.display_name, sha256: f.sha256, width: Number(f.width), height: Number(f.height), updated_at: f.uploaded_at };
+  }).filter(Boolean) };
+}
+
+function faceGet_(dev, b) {
+  if (!faceSyncOn_()) throw apiError_('FACE_SYNC_DISABLED', '顔画像の配信は管理画面で無効になっています');
+  var m = loadMasters_();
+  requireStaff_(m, b.staff_id);
+  var cur = faceRow_(str_(b.staff_id));
+  if (!cur) throw apiError_('NOT_FOUND', '職員ID「' + str_(b.staff_id) + '」の顔画像は登録されていません');
+  var data = Utilities.base64Encode(DriveApp.getFileById(cur.row.file_id).getBlob().getBytes());
+  logEvent_('顔画像の配信', { staff_id: cur.row.staff_id, device_id: dev.device_id });
+  return { staff_id: cur.row.staff_id, sha256: cur.row.sha256, mime: 'image/jpeg', width: Number(cur.row.width), height: Number(cur.row.height), data_base64: data };
+}
+
 // ===== Setup.gs（本番と同一） =====
 /**
  * Setup.gs — 初期設定・自己診断・鍵の再発行（Apps Scriptエディタから実行する）
  *   1. setup_       データベース（スプレッドシート）を作成し、管理キー・閲覧キーを発行
- *   2. selfTest_    架空の利用者・職員・端末で 保存→確定→再生取得→再生完了→取得 を実行し、後片付けする
+ *   2. selfTest_    架空の利用者・職員・端末で 保存→確定→再生取得→再生完了→取得→顔画像の登録・配信 を実行し、後片付けする
  *   3. rotateKeys_  管理キー・閲覧キーを作り直す（漏えい・担当交代時）
  */
 
@@ -1076,6 +1244,7 @@ function setup_() {
   if (readTable_('sites').rows.length === 0) appendRows_('sites', DEFAULT_SITES_.map(function (s) { return { site_id: s[0], name: s[1], aliases: s[2] }; }));
   if (!getSetting_('item_labels', null)) setSetting_('item_labels', DEFAULT_ITEMS_);
   var out = ['準備完了：' + ss.getUrl()];
+  try { out.push('顔画像の保存フォルダ：' + faceFolder_().getName() + '（共有しないでください）'); } catch (e) { out.push('顔画像フォルダを作れませんでした：' + e.message); }
   if (!p.getProperty('ADMIN_KEY_HASH')) out = out.concat(issueKeys_());
   else out.push('アクセスキーは発行済みです（作り直す場合は rotateKeys_ を実行）');
   out.forEach(function (l) { Logger.log(l); });
@@ -1101,6 +1270,7 @@ function selfTest_() {
   var TR = 'ZZTEST-R1', TS = 'ZZTEST-S1', TV = 'ZZTEST-S2', TD = 'zztest-device';
   var token = 'kc3_' + randomKey_(40);
   var results = [];
+  var faceSyncBefore = faceSyncOn_();
   var check = function (name, fn) {
     try { var v = fn(); results.push([name, v !== false, '']); }
     catch (e) { results.push([name, false, e.message]); }
@@ -1109,6 +1279,7 @@ function selfTest_() {
     appendRows_('residents', [{ resident_id: TR, site_id: 'yururia', display_name: 'テスト', speech_name: 'てすと', reading: 'てすと', call_names: 'てすとさん', active: '1' }]);
     appendRows_('staff', [{ staff_id: TS, display_name: 'テスト確定', role: '確定担当', site_id: 'yururia', display_mode: 'normal', can_input: '1', can_confirm: '1', can_view: '1', can_play: '1', active: '1' },
       { staff_id: TV, display_name: 'テスト閲覧', role: '外国人職員', site_id: 'yururia', display_mode: 'easy', can_input: '0', can_confirm: '0', can_view: '1', can_play: '1', active: '1' }]);
+    appendRows_('terms', [{ term_id: 'ZZTEST-T1', kind: '略語（英字）', readings: 'ゼットゼットティー', normal_display: 'ZZT', normal_speech: 'ゼットゼットティー', easy_display: 'ZZT（てすと用語）', easy_speech: 'ゼットゼットティー、てすと用語' }]);
     appendRows_('devices', [{ device_id: TD, site_id: 'yururia', label: 'selftest', token_hash: sha256_(token), active: '1', created_at: nowIso_() }]);
     try { CacheService.getScriptCache().remove('masters_v3'); } catch (e) {}
     var call = function (action, body) {
@@ -1124,21 +1295,30 @@ function selfTest_() {
     check('途中保存（7項目＋該当せず・AI仕分け・AI処理日時）', function () { return call('records.save', { record: draft }).revision === 1; });
     check('同じ内容の再送で版が増えない', function () { return call('records.save', { record: draft }).unchanged === true; });
     check('権限のない職員の保存を拒否', function () { try { call('records.save', { record: { record_id: rid + 'x', type: 'handover', status: 'draft', resident_id: TR, staff_id: TV, ai_summary: 'x' } }); return false; } catch (e) { return e.message.indexOf('PERMISSION_DENIED') === 0; } });
-    check('確定（records.confirm）', function () { return call('records.confirm', { record_id: rid, staff_id: TS, confirmed_text: '昼食は全量摂取。SpO2 98%' }).revision === 2; });
+    check('確定（records.confirm）', function () { return call('records.confirm', { record_id: rid, staff_id: TS, confirmed_text: '昼食は全量摂取。ZZT 98%' }).revision === 2; });
     var item;
     check('再生取得（playback.list）', function () { var l = call('playback.list', { staff_id: TV }); item = l.items.filter(function (x) { return x.record_id === rid; })[0]; return !!item && item.speech.indexOf('てすとさん') >= 0; });
     check('再生完了（playback.done）', function () { return call('playback.done', { record_id: rid, revision: item.revision, staff_id: TV }).recorded === true; });
     check('再生済みは次回の取得に出ない', function () { return !call('playback.list', { staff_id: TV }).items.some(function (x) { return x.record_id === rid; }); });
     check('前回取得（records.last）・要約前後', function () { var r = call('records.last', { resident_id: TR, type: 'handover' }).record; return r.record_id === rid && r.source_text && r.ai_summary && r.confirmed_text && r.items.item_none === '家族の話' && r.ai_items.item_1 === '全量' && !!r.ai_processed_at; });
     check('操作履歴（保存・確定・再生）', function () { var ev = readTable_('events').rows.filter(function (e) { return e.record_id === rid; }).map(function (e) { return e.action; }); return ev.length >= 3 && ev.some(function (a) { return /再生完了/.test(a); }); });
-    check('やさしいモードの読み上げ', function () { return /エスピーオーツー/.test(item.speech) || item.speech.indexOf('SpO2') < 0; });
+    check('やさしいモードの表示・読み上げ', function () { return item.speech.indexOf('ゼットゼットティー、てすと用語 98パーセント') >= 0 && item.display_text.indexOf('ZZT（てすと用語）') >= 0; });
+    check('顔画像の登録・配信（faces.list / faces.get）', function () {
+      uploadFace_(TS, SELFTEST_FACE_, 'selftest.jpg');
+      setSetting_('face_sync_to_device', true);
+      var l = call('faces.list', {}), g = call('faces.get', { staff_id: TS });
+      return l.faces.some(function (f) { return f.staff_id === TS; }) && g.data_base64 === SELFTEST_FACE_;
+    });
   } finally {
+    try { deleteFace_(TS); } catch (e) {}
+    setSetting_('face_sync_to_device', faceSyncBefore);
     deleteRowsWhere_('records', function (r) { return r.resident_id === TR; });
     deleteRowsWhere_('record_history', function (r) { return r.resident_id === TR; });
     deleteRowsWhere_('playbacks', function (r) { return r.device_id === TD; });
-    deleteRowsWhere_('events', function (r) { return r.device_id === TD || (r.record_id || '').indexOf('zztest-') === 0; });
+    deleteRowsWhere_('events', function (r) { return r.device_id === TD || (r.record_id || '').indexOf('zztest-') === 0 || r.staff_id === TS || r.staff_id === TV; });
     deleteRowsWhere_('residents', function (r) { return r.resident_id === TR; });
     deleteRowsWhere_('staff', function (r) { return r.staff_id === TS || r.staff_id === TV; });
+    deleteRowsWhere_('terms', function (r) { return r.term_id === 'ZZTEST-T1'; });
     deleteRowsWhere_('devices', function (r) { return r.device_id === TD; });
     try { CacheService.getScriptCache().remove('masters_v3'); } catch (e) {}
   }
@@ -1147,3 +1327,6 @@ function selfTest_() {
   Logger.log(ok ? 'すべて成功（テストデータは削除済み）。デプロイに進んでください。' : '失敗があります。上のログを確認してください。');
   return ok;
 }
+
+/** 自己診断用の架空の画像（灰色の人型。160×160） */
+var SELFTEST_FACE_ = '/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDABQODxIPDRQSEBIXFRQYHjIhHhwcHj0sLiQySUBMS0dARkVQWnNiUFVtVkVGZIhlbXd7gYKBTmCNl4x9lnN+gXz/2wBDARUXFx4aHjshITt8U0ZTfHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHz/wAARCACgAKADASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDeooopiCiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooqNp4lOC4/DmgCSioxcRE4Dj8eKkByMjpQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFRyzLEOeSegFPkcIhY9qznYuxZupoAWSV5D8x49O1MoooAKcjshypIptFAF+GdZODw3p61LWYCQQR1FaEMnmxhu/Q0APooooAKKKKACiiigAooooAKKKKACiiigCreNyqfiaq1NdH9+3tioaACiiigAooooAKsWjYl29mFV6fEcSpj1FAGjRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAFG6GJifUZqGrl4mVDjt1qnQAUUUUAFFFFABUkA3TIB65qOrNmmWLnoOBQBbooooAKKKKACiiigAooooAKKKKACiiigAIBBB6Gs+aIxPjnHY1oUjKrjDAEUAZlFWJLVgfk+YfrUDKVOGBB96AEopQCTgAk+1TJau33vlHvQBHGhkcKP/wBVaCKEUKvQUiRrGuFH4+tOoAKKKKACiiigAooooAKKKKACiiigCGa48pwu3PGetR/bP+mf6028/wBaP92q9AFr7Z/0z/Wj7Z/0z/WqtFAFr7Z/0z/Wj7Z/0z/WqtFAFr7Z/wBM/wBaPtn/AEz/AFqrRQBa+2f9M/1o+2f9M/1qrRQBa+2f9M/1p8Vz5kgXZjPfNUqltv8AXr+P8qAL9FFFABRRRQAUUUUAFFFFAFO8/wBaP92q9WLz/Wj/AHar0AFFFFABRRRQAUUUUAFFFFABUtt/r1/H+VRVLbf69fx/lQBfooooAKKKKACiiigAooooAp3n+tH+7VerF5/rR/u1XoAKKKKACiiigAooooAKKKKACpbb/Xr+P8qiqW2/16/j/KgC/RRRQAUUUUAFFFFABRRRQBTvP9aP92q9WLz/AFo/3ar0AFFFFABRRRQAUUUUAFFFFABUtt/r1/H+VRVLbf69fx/lQBfooooAKKKKAP/Z';
