@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kebbi Care DB v3 デモ</title>
+<style>
+:root{--ink:#1d2b3a;--mute:#6a7682;--line:#dfe3e6;--bg:#f4f5f2;--teal:#1f7a72;--orange:#c95a24;--blue:#2a5d9f}
+*{box-sizing:border-box}body{margin:0;font-family:"Hiragino Sans","Noto Sans JP","Yu Gothic UI","Meiryo",system-ui,sans-serif;color:var(--ink);background:var(--bg);line-height:1.7}
+header{background:var(--ink);color:#f6f4ef;padding:28px 20px}header h1{margin:0;font-size:24px}header p{margin:6px 0 0;color:#c9d3dc}
+main{max-width:1000px;margin:0 auto;padding:22px 16px 60px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px}
+.card h2{margin:0 0 6px;font-size:19px}
+a.btn{display:inline-block;margin-top:10px;padding:11px 20px;border-radius:10px;color:#fff;text-decoration:none;font-weight:700}
+.k{background:var(--orange)}.a{background:var(--teal)}
+ol{padding-left:20px}li{margin:4px 0}
+code{background:#eef1f2;padding:1px 6px;border-radius:4px}
+.warn{background:#f8e7dc;color:#7a3412;border-radius:10px;padding:12px 14px;font-size:14px}
+button{font:inherit;padding:8px 14px;border-radius:8px;border:1px solid var(--line);background:#fff;cursor:pointer}
+table{border-collapse:collapse;width:100%;font-size:14px}td,th{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left}
+</style>
+</head>
+<body>
+<header><h1>Kebbi Care DB v3 デモ</h1><p>申し送り・7項目・健康チェック・連絡事項の「保存・再生・CSV取得」を、ブラウザだけで試せます。</p></header>
+<main>
+  <div class="warn">このデモは<b>架空の利用者・職員</b>で動きます。入力した内容はこのブラウザ内（localStorage）だけに保存され、どこにも送信されません。<b>実在の方の情報は入力しないでください。</b></div>
+  <div class="grid" style="margin-top:16px">
+    <div class="card"><h2>① Kebbi操作デモ</h2><p>職員としてログインし、申し送りをする・受ける（読み上げ）・健康チェック・連絡・確定待ちの確定を試せます。右側にKebbiとAPIの通信内容が出ます。</p><a class="btn k" href="kebbi.html">Kebbi操作デモを開く</a></div>
+    <div class="card"><h2>② 管理画面デモ</h2><p>記録の確認・確定・訂正、再生状況、集計、CSV出力、マスタ（XLSX）取込、端末登録、7項目名の設定を試せます。</p><p>管理キー <code>demo-admin</code>　閲覧キー <code>demo-viewer</code></p><a class="btn a" href="admin.html">管理画面デモを開く</a></div>
+  </div>
+  <div class="card" style="margin-top:16px">
+    <h2>おすすめの試し方（約5分）</h2>
+    <ol>
+      <li>Kebbi操作デモで <b>職員B（記録担当）</b> を選び、「申し送りをする」→「例1」→「国産AIで要約・7項目（デモ）」→「途中保存」（記録担当は確定できないため確定待ちになります）</li>
+      <li>ログアウトして <b>職員A（確定担当）</b> を選び、「確定待ち」で今の記録を確定</li>
+      <li>ログアウトして <b>職員C（外国人職員）</b> を選び、「申し送りを受ける」→「読み上げを始める」（端末のスピーカーで読み上げます。最後まで聞いた記録だけ「聞いた」になります）</li>
+      <li>管理画面デモ（<code>demo-admin</code>）で「記録」「再生状況」「集計」を確認し、「CSV出力」で記録をダウンロード</li>
+      <li>「マスタ」で <a href="sample/masters_fictional.xlsx">架空のマスタ登録シート（XLSX）</a> を選ぶと、取込前の確認と取込を試せます</li>
+    </ol>
+  </div>
+  <div class="card" style="margin-top:16px">
+    <h2>デモと本番の違い</h2>
+    <table>
+      <tr><th>項目</th><th>デモ</th><th>本番（Google設置後）</th></tr>
+      <tr><td>データの保存先</td><td>このブラウザ内</td><td>Googleスプレッドシート（制限付き）</td></tr>
+      <tr><td>API・管理画面のプログラム</td><td colspan="2">同じもの（Apps Scriptのコードをブラウザで動かしています）</td></tr>
+      <tr><td>国産AIの要約・7項目</td><td>用語登録を使った簡易処理</td><td>東大モデル（Kebbi側で実装済み）</td></tr>
+      <tr><td>読み上げ</td><td>ブラウザの音声合成</td><td>Kebbiの音声合成（NUWA SDK）</td></tr>
+      <tr><td>ログイン</td><td>職員を選ぶ</td><td>顔認証・PIN（Kebbi側）</td></tr>
+    </table>
+    <p style="margin-top:14px"><button id="reset">デモのデータを初期状態に戻す</button> <span id="rmsg" style="font-size:14px;color:var(--mute)"></span></p>
+  </div>
+  <p style="font-size:13px;color:var(--mute)">2026-11-03　Edutex株式会社｜GENIAC-PRIZE 2026 Kebbi Care Shift OS 実証用</p>
+</main>
+<script>
+document.getElementById('reset').onclick=function(){try{localStorage.removeItem('kc3demo_v1')}catch(e){}document.getElementById('rmsg').textContent='初期状態に戻しました。次にデモを開くと最初のデータから始まります。'};
+</script>
+</body>
+</html>

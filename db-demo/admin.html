@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>管理画面デモ｜Kebbi Care DB v3</title>
+<style>
+:root{--ink:#1d2b3a;--ink2:#3d4c5a;--mute:#6a7682;--line:#dfe3e6;--bg:#f4f5f2;--teal:#1f7a72;--teal-bg:#e3efed;--orange:#c95a24;--orange-bg:#f8e7dc;--blue:#2a5d9f;--blue-bg:#e2ebf6;--purple:#6a4c93;--purple-bg:#ece4f5;--red:#b3261e;--red-bg:#f9e2e0;--ok:#2e7d32}
+*{box-sizing:border-box}body{margin:0;font-family:"Hiragino Sans","Noto Sans JP","Yu Gothic UI","Meiryo",system-ui,sans-serif;color:var(--ink);background:var(--bg);font-size:14px;line-height:1.6}
+button,input,select,textarea{font:inherit;color:inherit}
+header{background:var(--ink);color:#f6f4ef;padding:12px 18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+header h1{font-size:17px;margin:0}header .sub{font-size:12px;color:#b9c4ce}header .who{margin-left:auto;font-size:12px;color:#c9d3dc}
+nav{display:flex;gap:2px;padding:0 12px;background:#fff;border-bottom:1px solid var(--line);overflow-x:auto;position:sticky;top:0;z-index:5}
+nav a{padding:11px 13px;text-decoration:none;color:var(--mute);font-weight:600;border-bottom:3px solid transparent;white-space:nowrap;cursor:pointer}
+nav a.on{color:var(--ink);border-bottom-color:var(--orange)}
+main{max-width:1240px;margin:0 auto;padding:18px 14px 60px}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px}.card h2{font-size:16px;margin:0 0 10px}.card h3{font-size:14px;margin:14px 0 6px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}.grow{flex:1}
+.btn{border:1px solid var(--line);background:#fff;border-radius:8px;padding:7px 14px;cursor:pointer;font-weight:600}.btn:hover{background:#f2f4f5}
+.btn.primary{background:var(--teal);border-color:var(--teal);color:#fff}.btn.danger{color:var(--red);border-color:#e7b9b5}.btn:disabled{opacity:.45;cursor:not-allowed}
+input[type=text],input[type=password],input[type=date],input[type=search],select,textarea{border:1px solid #cdd3d8;border-radius:8px;padding:6px 10px;background:#fff;min-width:0}
+textarea{width:100%;min-height:110px}
+label.f{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--mute)}
+table.t{width:100%;border-collapse:collapse;font-size:13px}table.t th{background:#eef1f2;text-align:left;padding:7px 8px;white-space:nowrap;position:sticky;top:0}
+table.t td{border-top:1px solid var(--line);padding:7px 8px;vertical-align:top}table.t tr.click{cursor:pointer}table.t tr.click:hover td{background:#f6f8f8}
+.scroll{overflow:auto;max-height:600px;border:1px solid var(--line);border-radius:8px;background:#fff}
+.tag{display:inline-block;padding:1px 8px;border-radius:99px;font-size:12px;font-weight:600;white-space:nowrap}
+.tag.handover{background:var(--orange-bg);color:var(--orange)}.tag.health{background:var(--blue-bg);color:var(--blue)}.tag.notice{background:var(--purple-bg);color:var(--purple)}
+.tag.ok{background:#e3f1e4;color:var(--ok)}.tag.ng{background:var(--red-bg);color:var(--red)}.tag.o{background:#eceeef;color:var(--ink2)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:14px}
+.kpi{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px}.kpi .v{font-size:26px;font-weight:800;line-height:1.2}.kpi .l{font-size:12px;color:var(--mute)}
+.bar{height:10px;background:#e6eaec;border-radius:99px;overflow:hidden}.bar>i{display:block;height:100%;background:var(--teal)}
+.banner{padding:10px 14px;border-radius:8px;margin-bottom:12px;font-size:13px}.banner.err{background:var(--red-bg);color:var(--red)}.banner.warn{background:var(--orange-bg);color:#7a3412}.banner.info{background:var(--blue-bg);color:#1e436f}.banner.ok{background:#e3f1e4;color:var(--ok)}
+.muted{color:var(--mute)}.small{font-size:12px}.hidden{display:none!important}
+.drawer-bg{position:fixed;inset:0;background:rgba(20,30,40,.35);z-index:20}.drawer{position:fixed;top:0;right:0;bottom:0;width:min(600px,100%);background:#fff;z-index:21;overflow:auto;padding:18px;box-shadow:-8px 0 30px rgba(0,0,0,.15)}
+dl.kv{display:grid;grid-template-columns:120px 1fr;gap:6px 12px;margin:0}dl.kv dt{color:var(--mute);font-size:12px}dl.kv dd{margin:0;white-space:pre-wrap;word-break:break-word}
+.modal-bg{position:fixed;inset:0;background:rgba(20,30,40,.45);z-index:30;display:flex;align-items:center;justify-content:center;padding:16px}.modal{background:#fff;border-radius:12px;padding:18px;max-width:640px;width:100%}
+pre.code{background:#1d2b3a;color:#e8eef2;padding:12px;border-radius:8px;white-space:pre-wrap;word-break:break-all;font-size:12px}
+.login{max-width:420px;margin:60px auto}
+</style>
+</head>
+<body>
+<header><div><h1>Kebbi Care DB 管理画面</h1><div class="sub">申し送り・健康チェック・連絡事項（GENIAC実証）</div></div><div class="who" id="who"></div></header>
+<nav id="nav" class="hidden">
+  <a data-v="records">記録</a><a data-v="playback">再生状況</a><a data-v="dash">集計</a><a data-v="csv">CSV出力</a>
+  <a data-v="masters" class="adm">マスタ</a><a data-v="devices" class="adm">Kebbi端末</a><a data-v="settings" class="adm">設定</a><a id="logout">ログアウト</a>
+</nav>
+<main>
+  <div class="banner warn" id="demoBanner">デモ版：架空データ・このブラウザ内だけで動作します。管理キー <b>demo-admin</b>　閲覧キー <b>demo-viewer</b>　｜　<a href="kebbi.html" target="_blank" rel="noopener">Kebbi操作デモを開く</a>　｜　<a href="./">デモの説明</a></div>
+  <div id="msg"></div>
+
+  <section id="v-login" class="login card">
+    <h2>ログイン</h2>
+    <p class="small muted">管理担当から受け取ったアクセスキーを入力してください。</p>
+    <form id="loginForm"><input type="password" id="key" placeholder="アクセスキー" style="width:100%" autocomplete="off"><div class="row" style="margin-top:10px"><button class="btn primary" type="submit">ログイン</button></div></form>
+  </section>
+
+  <section id="v-records" class="view hidden">
+    <div class="card"><div class="row">
+      <label class="f">拠点<select id="fSite"></select></label>
+      <label class="f">期間（開始）<input type="date" id="fFrom"></label>
+      <label class="f">期間（終了）<input type="date" id="fTo"></label>
+      <label class="f">種別<select id="fType"><option value="">すべて</option><option value="handover">申し送り</option><option value="health">健康チェック</option><option value="notice">連絡事項</option></select></label>
+      <label class="f">状態<select id="fStatus"><option value="">すべて</option><option value="draft">途中保存（未確定）</option><option value="confirmed">確定</option></select></label>
+      <label class="f">利用者<select id="fRes"></select></label>
+      <label class="f grow">キーワード<input type="search" id="fKw" placeholder="本文・7項目を検索"></label>
+      <button class="btn primary" id="fGo">表示</button>
+    </div></div>
+    <div class="small muted" id="recCount" style="margin:0 2px 6px"></div>
+    <div class="scroll"><table class="t" id="recTbl"></table></div>
+  </section>
+
+  <section id="v-playback" class="view hidden">
+    <div class="card"><div class="row">
+      <label class="f">拠点<select id="pSite"></select></label>
+      <label class="f">期間（開始）<input type="date" id="pFrom"></label>
+      <button class="btn primary" id="pGo">表示</button>
+      <span class="small muted grow">確定した申し送り・連絡事項について、Kebbiで聞いた職員の人数を表示します（同じ記録を訂正すると0人に戻ります）。</span>
+    </div></div>
+    <div class="scroll"><table class="t" id="pbTbl"></table></div>
+  </section>
+
+  <section id="v-dash" class="view hidden">
+    <div class="card"><div class="row">
+      <label class="f">拠点<select id="dSite"></select></label>
+      <label class="f">期間（開始）<input type="date" id="dFrom"></label>
+      <label class="f">期間（終了）<input type="date" id="dTo"></label>
+      <button class="btn primary" id="dGo">集計</button>
+      <span class="small muted grow">記録から算出した参考値です。K1（総所要時間）の削減率は導入前の計測値と比較してください。</span>
+    </div></div>
+    <div class="kpis" id="kpis"></div>
+    <div class="card"><h2>申し送り 7項目の記載率（確定分）</h2><div id="fill"></div></div>
+    <div class="card"><h2>日別の件数</h2><div class="scroll" style="max-height:360px"><table class="t" id="dayTbl"></table></div></div>
+  </section>
+
+  <section id="v-csv" class="view hidden">
+    <div class="card">
+      <h2>CSV出力</h2>
+      <p class="small muted">Excelで開ける形式（UTF-8・BOM付き）です。記録は「記録」画面で指定した拠点・期間・種別・状態の条件で出力します。</p>
+      <div class="row">
+        <button class="btn primary" data-csv="records">記録（申し送り・7項目・健康チェック・連絡事項）</button>
+        <button class="btn" data-csv="playbacks">再生履歴</button>
+        <button class="btn adm" data-csv="residents">利用者マスタ</button>
+        <button class="btn adm" data-csv="staff">職員マスタ</button>
+        <button class="btn adm" data-csv="terms">用語マスタ</button>
+      </div>
+      <div id="csvMsg" class="small" style="margin-top:8px"></div>
+    </div>
+  </section>
+
+  <section id="v-masters" class="view hidden">
+    <div class="card">
+      <h2>マスタ登録シート（XLSX）の取込</h2>
+      <p class="small">「GENIAC実証PoC マスタ登録シート」をそのまま選んでください。利用者マスター・職員マスター・権限（役割別）・呼称・用語登録の4シートだけを読みます（実名一覧のシートは読みません）。取込むと、マスタは丸ごと置き換わります。記録と再生履歴は消えません。</p>
+      <div class="row"><input type="file" id="xlsx" accept=".xlsx,.xlsm"><button class="btn primary" id="impGo" disabled>取り込む</button></div>
+      <div id="impPrev" style="margin-top:10px"></div>
+    </div>
+    <div class="card"><h2>登録内容</h2><div id="mInfo" class="small muted"></div>
+      <div class="row" style="margin:8px 0"><select id="mTab"><option value="residents">利用者</option><option value="staff">職員</option><option value="roles">役割と権限</option><option value="terms">用語</option><option value="sites">拠点</option></select></div>
+      <div class="scroll" style="max-height:480px"><table class="t" id="mTbl"></table></div>
+    </div>
+  </section>
+
+  <section id="v-devices" class="view hidden">
+    <div class="card"><h2>Kebbi端末の登録</h2>
+      <p class="small muted">端末ごとに接続用の設定（URL・トークン）を発行します。トークンは発行時に1回だけ表示されます。紛失・譲渡・故障時は「停止」し、新しい端末IDで登録し直してください。</p>
+      <div class="row"><label class="f">端末ID（英数字）<input type="text" id="devId" placeholder="kebbi-yururia-01"></label><label class="f">拠点<select id="devSite"></select></label><label class="f grow">設置場所メモ<input type="text" id="devLabel" placeholder="1階 詰所"></label><button class="btn primary" id="devGo">発行</button></div>
+      <div id="devOut"></div>
+    </div>
+    <div class="scroll"><table class="t" id="devTbl"></table></div>
+  </section>
+
+  <section id="v-settings" class="view hidden">
+    <div class="card"><h2>申し送り 7項目の名称</h2>
+      <p class="small muted">初期値は仮置きです。ジェネラスで確定した名称に変更してください。データは item_1〜item_7 の固定列に保存されるため、名称を変えても過去の記録は崩れません（意味を入れ替えるのは不可）。</p>
+      <div id="itemsEd" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px"></div>
+      <div class="row" style="margin-top:10px"><button class="btn primary" id="itemsGo">保存</button><span id="itemsMsg" class="small"></span></div>
+    </div>
+  </section>
+</main>
+<div id="layer"></div>
+
+<script src="lib/xlsx.full.min.js"></script>
+<script src="sheets.js"></script>
+<script src="gas-code.js"></script>
+<script src="runtime.js"></script>
+<script>
+(function(){
+'use strict';
+var S={key:null,role:null,ctx:null,rows:[],sheets:null};
+var $=function(s){return document.querySelector(s)};
+var esc=function(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})};
+function run(fn){var args=Array.prototype.slice.call(arguments,1);return new Promise(function(res,rej){google.script.run.withSuccessHandler(res).withFailureHandler(function(e){rej(e&&e.message?e:new Error(String(e)))})[fn].apply(null,[S.key].concat(args))})}
+function msg(t,kind){$('#msg').innerHTML=t?'<div class="banner '+(kind||'info')+'">'+t+'</div>':'';}
+function fail(e){msg(esc(e.message||e),'err');}
+var TYPE={handover:'申し送り',health:'健康チェック',notice:'連絡事項'};
+function typeTag(t){return '<span class="tag '+t+'">'+esc(TYPE[t]||t)+'</span>'}
+function statusTag(s){return s==='confirmed'?'<span class="tag ok">確定</span>':'<span class="tag o">途中保存</span>'}
+function fmt(iso){return iso?iso.slice(0,16).replace('T',' '):''}
+function siteName(id){var s=(S.ctx.sites||[]).filter(function(x){return x.site_id===id})[0];return s?s.name:id}
+function resName(id){var r=(S.ctx.residents||[]).filter(function(x){return x.resident_id===id})[0];return r?r.display_name:''}
+function dayStart(d){return d?d+'T00:00:00+09:00':''}
+function dayEnd(d){if(!d)return '';var t=new Date(d+'T00:00:00+09:00');t.setDate(t.getDate()+1);var z=function(n){return('0'+n).slice(-2)};return t.getFullYear()+'-'+z(t.getMonth()+1)+'-'+z(t.getDate())+'T00:00:00+09:00'}
+function trunc(s,n){s=String(s||'');return s.length>n?s.slice(0,n)+'…':s}
+function modal(html){$('#layer').innerHTML='<div class="modal-bg" id="mbg"><div class="modal">'+html+'</div></div>';$('#mbg').addEventListener('click',function(e){if(e.target.id==='mbg')closeLayer()})}
+function closeLayer(){$('#layer').innerHTML=''}
+
+// ---------- ログイン ----------
+$('#loginForm').addEventListener('submit',function(e){e.preventDefault();login($('#key').value.trim())});
+function login(k){
+  S.key=k;msg('確認中…');
+  run('adminLogin').then(function(ctx){
+    S.role=ctx.role;S.ctx=ctx;msg('');
+    try{sessionStorage.setItem('kc3key',k)}catch(_){}
+    $('#v-login').classList.add('hidden');$('#nav').classList.remove('hidden');
+    $('#who').textContent=ctx.role==='admin'?'管理者としてログイン中':'閲覧者としてログイン中';
+    document.querySelectorAll('.adm').forEach(function(el){el.classList.toggle('hidden',ctx.role!=='admin')});
+    fillSelects();show(location.hash.slice(1)||'records');
+  }).catch(function(e){S.key=null;try{sessionStorage.removeItem('kc3key')}catch(_){}fail(e)});
+}
+$('#logout').addEventListener('click',function(){try{sessionStorage.removeItem('kc3key')}catch(_){}location.reload()});
+function fillSelects(){
+  var so='<option value="">すべて</option>'+S.ctx.sites.map(function(s){return '<option value="'+esc(s.site_id)+'">'+esc(s.name)+'</option>'}).join('');
+  ['#fSite','#pSite','#dSite'].forEach(function(id){$(id).innerHTML=so});
+  $('#devSite').innerHTML=S.ctx.sites.map(function(s){return '<option value="'+esc(s.site_id)+'">'+esc(s.name)+'</option>'}).join('');
+  $('#fRes').innerHTML='<option value="">すべて</option>'+S.ctx.residents.map(function(r){return '<option value="'+esc(r.resident_id)+'">'+esc(r.resident_id+' '+r.display_name)+'</option>'}).join('');
+}
+
+// ---------- 画面切替 ----------
+var VIEWS=['records','playback','dash','csv','masters','devices','settings'];
+document.querySelectorAll('#nav a[data-v]').forEach(function(a){a.addEventListener('click',function(){show(a.dataset.v)})});
+function show(v){
+  if(VIEWS.indexOf(v)<0)v='records';
+  if(S.role!=='admin'&&['masters','devices','settings'].indexOf(v)>=0)v='records';
+  try{history.replaceState(null,'','#'+v)}catch(_){}
+  VIEWS.forEach(function(x){$('#v-'+x).classList.toggle('hidden',x!==v)});
+  document.querySelectorAll('#nav a[data-v]').forEach(function(a){a.classList.toggle('on',a.dataset.v===v)});
+  msg('');
+  if(v==='records')loadRecords();if(v==='playback')loadPlayback();if(v==='dash')loadDash();
+  if(v==='masters')loadMasters();if(v==='devices')loadDevices();if(v==='settings')loadSettings();
+}
+
+// ---------- 記録 ----------
+function recQuery(){return{site_id:$('#fSite').value,from:dayStart($('#fFrom').value),until:dayEnd($('#fTo').value),type:$('#fType').value,status:$('#fStatus').value,resident_id:$('#fRes').value,keyword:$('#fKw').value.trim()}}
+$('#fGo').addEventListener('click',loadRecords);
+function loadRecords(){
+  $('#recCount').textContent='読み込み中…';
+  run('adminRecords',recQuery()).then(function(r){
+    S.rows=r.rows;
+    $('#recCount').textContent=r.total+' 件'+(r.total>r.rows.length?'（新しい順に '+r.rows.length+' 件を表示）':'');
+    var h='<tr><th>日時</th><th>拠点</th><th>種別</th><th>状態</th><th>利用者</th><th>職員</th><th>本文</th><th>7項目</th><th>再生</th></tr>';
+    if(!r.rows.length)h+='<tr><td colspan="9" class="muted" style="text-align:center;padding:24px">記録がありません</td></tr>';
+    r.rows.forEach(function(x,i){
+      h+='<tr class="click" data-i="'+i+'"><td style="white-space:nowrap">'+esc(fmt(x.recorded_at))+'</td><td>'+esc(siteName(x.site_id))+'</td><td>'+typeTag(x.type)+'</td><td>'+statusTag(x.status)+'</td><td>'+esc(x.resident_id?x.resident_id+' '+resName(x.resident_id):'—')+'</td><td>'+esc(x.staff_id)+'</td><td>'+esc(trunc(x.confirmed_text||x.ai_summary||x.source_text,50))+'</td><td>'+(x.type==='handover'?'<span class="tag '+(x.filled===7?'ok':'ng')+'">'+x.filled+'/7</span>':'')+'</td><td>'+(x.status==='confirmed'&&x.type!=='health'?(x.played_count?'<span class="tag ok">'+x.played_count+'人</span>':'<span class="tag ng">未</span>'):'')+'</td></tr>';
+    });
+    $('#recTbl').innerHTML=h;
+    document.querySelectorAll('#recTbl tr.click').forEach(function(tr){tr.addEventListener('click',function(){openDetail(S.rows[+tr.dataset.i].record_id)})});
+  }).catch(fail);
+}
+function openDetail(id){
+  run('adminRecordDetail',id).then(function(d){
+    var r=d.record;
+    var h='<div class="row" style="align-items:center"><h2 style="margin:0;font-size:17px">'+typeTag(r.type)+' '+statusTag(r.status)+' '+esc(r.resident_id?r.resident_id+' '+resName(r.resident_id):'')+'</h2><span class="grow"></span><button class="btn" id="dClose">閉じる</button></div>';
+    h+='<dl class="kv" style="margin-top:12px"><dt>日時</dt><dd>'+esc(fmt(r.recorded_at))+'</dd><dt>拠点</dt><dd>'+esc(siteName(r.site_id))+'</dd><dt>記録した職員</dt><dd>'+esc(r.staff_id)+'</dd>'+(r.recipient?'<dt>宛先</dt><dd>'+esc(r.recipient)+'</dd>':'')+'<dt>版</dt><dd>'+r.revision+'（'+esc(fmt(r.updated_at))+' 更新）</dd>'+(r.confirmed_by?'<dt>確定</dt><dd>'+esc(r.confirmed_by)+'　'+esc(fmt(r.confirmed_at))+'</dd>':'')+(r.duration_sec!=null?'<dt>所要時間</dt><dd>'+r.duration_sec+' 秒</dd>':'')+(r.ai_model?'<dt>AIモデル</dt><dd>'+esc(r.ai_model)+'</dd>':'')+'</dl>';
+    h+='<h3>確定本文（Kebbiが読み上げる文）</h3><div style="white-space:pre-wrap">'+(esc(r.confirmed_text)||'<span class="muted">（未確定）</span>')+'</div>';
+    if(r.type==='handover'||Object.keys(r.items).some(function(k){return r.items[k]})){h+='<h3>7項目</h3><dl class="kv">';r.item_labels.forEach(function(l,i){var v=r.items['item_'+(i+1)];h+='<dt>'+esc(l)+'</dt><dd>'+(v?esc(v):'<span class="muted">（空）</span>')+'</dd>'});h+='</dl>'}
+    h+='<h3>AI要約</h3><div style="white-space:pre-wrap">'+(esc(r.ai_summary)||'<span class="muted">（なし）</span>')+'</div>';
+    if(r.source_text)h+='<h3>元テキスト（音声認識）</h3><div style="white-space:pre-wrap" class="muted">'+esc(r.source_text)+'</div>';
+    if(S.role==='admin'){
+      var conf=S.ctx.staff.filter(function(s){return s.can_confirm});
+      h+='<h3>'+(r.status==='confirmed'?'確定本文を訂正する':'確定する')+'</h3><p class="small muted">訂正すると版が上がり、Kebbiで再生済みの職員にも再び読み上げ対象になります。</p><textarea id="cText">'+esc(r.confirmed_text||r.ai_summary)+'</textarea><div class="row" style="margin-top:6px"><label class="f">確定する職員（確定権限あり）<select id="cStaff">'+conf.map(function(s){return '<option value="'+esc(s.staff_id)+'">'+esc(s.staff_id+' '+s.display_name)+'</option>'}).join('')+'</select></label><button class="btn primary" id="cGo">'+(r.status==='confirmed'?'訂正を保存':'確定する')+'</button><span id="cMsg" class="small"></span></div>';
+    }
+    if(d.playbacks.length){h+='<h3>再生履歴</h3><table class="t"><tr><th>聞いた職員</th><th>版</th><th>再生日時</th><th>端末</th></tr>'+d.playbacks.map(function(p){return '<tr><td>'+esc(p.staff_id)+'</td><td>'+esc(p.revision)+'</td><td>'+esc(fmt(p.played_at))+'</td><td>'+esc(p.device_id)+'</td></tr>'}).join('')+'</table>'}
+    if(d.history.length){h+='<h3>過去の版</h3>'+d.history.map(function(x){return '<div class="small" style="border-top:1px solid var(--line);padding:6px 0"><b>版'+x.revision+'</b> '+statusTag(x.status)+' '+esc(fmt(x.updated_at))+'<div style="white-space:pre-wrap">'+esc(x.confirmed_text||x.ai_summary)+'</div></div>'}).join('')}
+    $('#layer').innerHTML='<div class="drawer-bg" id="dbg"></div><div class="drawer">'+h+'</div>';
+    $('#dbg').addEventListener('click',closeLayer);$('#dClose').addEventListener('click',closeLayer);
+    if($('#cGo'))$('#cGo').addEventListener('click',function(){
+      $('#cGo').disabled=true;$('#cMsg').textContent='保存中…';
+      run('adminConfirm',r.record_id,$('#cStaff').value,$('#cText').value,r.revision).then(function(x){$('#cMsg').innerHTML='<span style="color:var(--ok)">保存しました（版'+x.revision+'）</span>';loadRecords();setTimeout(function(){openDetail(r.record_id)},400)})
+      .catch(function(e){$('#cGo').disabled=false;$('#cMsg').innerHTML='<span style="color:var(--red)">'+esc(e.message)+'</span>'});
+    });
+  }).catch(fail);
+}
+
+// ---------- 再生状況 ----------
+$('#pGo').addEventListener('click',loadPlayback);
+function loadPlayback(){
+  if(!$('#pFrom').value){var d=new Date(Date.now()-2*86400000);$('#pFrom').value=d.toISOString().slice(0,10)}
+  run('adminRecords',{site_id:$('#pSite').value,from:dayStart($('#pFrom').value),status:'confirmed'}).then(function(r){
+    var rows=r.rows.filter(function(x){return x.type!=='health'});
+    var h='<tr><th>日時</th><th>拠点</th><th>種別</th><th>利用者・宛先</th><th>本文</th><th>聞いた職員</th></tr>';
+    if(!rows.length)h+='<tr><td colspan="6" class="muted" style="text-align:center;padding:24px">対象の記録がありません</td></tr>';
+    rows.forEach(function(x){h+='<tr class="click" data-id="'+esc(x.record_id)+'"><td style="white-space:nowrap">'+esc(fmt(x.recorded_at))+'</td><td>'+esc(siteName(x.site_id))+'</td><td>'+typeTag(x.type)+'</td><td>'+esc(x.resident_id?x.resident_id+' '+resName(x.resident_id):x.recipient||'')+'</td><td>'+esc(trunc(x.confirmed_text,60))+'</td><td>'+(x.played_count?'<span class="tag ok">'+x.played_count+'人</span>':'<span class="tag ng">まだ誰も聞いていません</span>')+'</td></tr>'});
+    $('#pbTbl').innerHTML=h;
+    document.querySelectorAll('#pbTbl tr.click').forEach(function(tr){tr.addEventListener('click',function(){openDetail(tr.dataset.id)})});
+  }).catch(fail);
+}
+
+// ---------- 集計 ----------
+$('#dGo').addEventListener('click',loadDash);
+function kpi(v,l){return '<div class="kpi"><div class="v">'+esc(v)+'</div><div class="l">'+esc(l)+'</div></div>'}
+function loadDash(){
+  run('adminDashboard',{site_id:$('#dSite').value,from:dayStart($('#dFrom').value),until:dayEnd($('#dTo').value)}).then(function(d){
+    $('#kpis').innerHTML=kpi(d.total,'記録（途中保存を含む）')+kpi(d.confirmed,'確定')+kpi(d.draft,'途中保存（未確定）')+kpi(d.handover,'申し送り（確定）')+kpi(d.health,'健康チェック（確定）')+kpi(d.notice,'連絡事項（確定）')
+      +kpi(d.playback_rate==null?'—':(d.playback_rate*100).toFixed(1)+'%','再生済み率（1人以上が聞いた割合）')+kpi(d.avg_duration_sec==null?'—':(d.avg_duration_sec>=60?(d.avg_duration_sec/60).toFixed(1)+'分':Math.round(d.avg_duration_sec)+'秒'),'申し送り1件の平均所要時間');
+    $('#fill').innerHTML=d.item_fill.map(function(x){var p=x.total?x.filled/x.total*100:0;return '<div style="margin-bottom:8px"><div class="row small" style="align-items:center"><b>'+esc(x.label)+'</b><span class="grow"></span><span>'+(x.total?p.toFixed(1)+'%（'+x.filled+'/'+x.total+'）':'—')+'</span></div><div class="bar"><i style="width:'+p+'%"></i></div></div>'}).join('');
+    var h='<tr><th>日付</th><th>申し送り</th><th>健康チェック</th><th>連絡事項</th></tr>';
+    if(!d.by_day.length)h+='<tr><td colspan="4" class="muted" style="text-align:center;padding:20px">記録がありません</td></tr>';
+    d.by_day.forEach(function(x){h+='<tr><td>'+esc(x.date)+'</td><td>'+x.handover+'</td><td>'+x.health+'</td><td>'+x.notice+'</td></tr>'});
+    $('#dayTbl').innerHTML=h;
+  }).catch(fail);
+}
+
+// ---------- CSV ----------
+document.querySelectorAll('[data-csv]').forEach(function(b){b.addEventListener('click',function(){
+  $('#csvMsg').textContent='作成中…';
+  run('adminExportCsv',b.dataset.csv,recQuery()).then(function(r){
+    $('#csvMsg').innerHTML='<span style="color:var(--ok)">'+r.count+' 件を出力しました（'+esc(r.filename)+'）</span>';
+    try{var url=URL.createObjectURL(new Blob([r.csv],{type:'text/csv;charset=utf-8'}));var a=document.createElement('a');a.href=url;a.download=r.filename;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(url)},5000)}
+    catch(e){modal('<h3 style="margin-top:0">ダウンロードできない環境です</h3><p class="small">内容をコピーして「'+esc(r.filename)+'」として保存してください。</p><textarea style="height:220px">'+esc(r.csv)+'</textarea><div class="row" style="justify-content:flex-end;margin-top:8px"><button class="btn" id="mClose">閉じる</button></div>');$('#mClose').addEventListener('click',closeLayer)}
+  }).catch(function(e){$('#csvMsg').innerHTML='<span style="color:var(--red)">'+esc(e.message)+'</span>'});
+})});
+
+// ---------- マスタ ----------
+var MCOLS={residents:[['resident_id','利用者ID'],['site_id','拠点'],['display_name','画面表示名'],['speech_name','発話名'],['reading','読み'],['call_names','認識させたい呼び名'],['consent_checked','同意照合日'],['start_date','開始'],['end_date','終了']],
+  staff:[['staff_id','職員ID'],['display_name','表示名'],['role','役割'],['job','職種'],['site_id','所属'],['shift','勤務'],['can_input','入力'],['can_confirm','確定'],['can_view','閲覧'],['can_play','再生'],['start_date','開始'],['end_date','終了']],
+  roles:[['role','役割'],['scope','対象範囲'],['can_input','入力・訂正'],['can_confirm','内容の確定'],['can_view','閲覧・原文'],['can_play','Kebbi音声再生']],
+  terms:[['kind','種類'],['readings','読み方'],['display','表記'],['easy_display','やさしい表示'],['note','注意']],
+  sites:[['site_id','拠点ID'],['name','名称'],['aliases','別名']]};
+var MDATA=null;
+function yn(v){return v==='1'?'可':v==='0'?'不可':v}
+function loadMasters(){
+  run('adminMasters').then(function(m){MDATA=m;
+    $('#mInfo').innerHTML='利用者 '+m.residents.length+' 名・職員 '+m.staff.length+' 名・用語 '+m.terms.length+' 件　／　版 '+esc(m.version)+(m.log.length?'　／　最終取込 '+esc(fmt(m.log[0].at)):'');
+    renderMTab();
+  }).catch(fail);
+}
+$('#mTab').addEventListener('change',renderMTab);
+function renderMTab(){if(!MDATA)return;var k=$('#mTab').value,cols=MCOLS[k];var h='<tr>'+cols.map(function(c){return '<th>'+c[1]+'</th>'}).join('')+'</tr>';
+  MDATA[k].forEach(function(r){h+='<tr>'+cols.map(function(c){var v=r[c[0]];return '<td>'+esc(/^can_/.test(c[0])?yn(v):c[0]==='site_id'?siteName(v):v)+'</td>'}).join('')+'</tr>'});$('#mTbl').innerHTML=h}
+$('#xlsx').addEventListener('change',function(){
+  var f=$('#xlsx').files[0];S.sheets=null;$('#impGo').disabled=true;if(!f)return;
+  if(typeof XLSX==='undefined'){$('#impPrev').innerHTML='<div class="banner err">XLSX読込部品を読み込めませんでした。ネットワークを確認して画面を開き直してください。</div>';return}
+  var rd=new FileReader();rd.onload=function(){
+    try{var wb=XLSX.read(new Uint8Array(rd.result),{type:'array',cellDates:true});var need=['利用者マスター','職員マスター','権限（役割別）','呼称・用語登録'];var sh={};
+      need.forEach(function(n){if(wb.Sheets[n])sh[n]=XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:false,dateNF:'yyyy/mm/dd',defval:''})});
+      S.sheets=sh;$('#impPrev').innerHTML='<div class="muted small">内容を確認しています…</div>';
+      run('adminPreviewImport',sh).then(function(p){
+        var h='<div class="banner info">読み取り結果：利用者 '+p.counts.residents+' 名・職員 '+p.counts.staff+' 名・役割 '+p.counts.roles+' 件・用語 '+p.counts.terms+' 件</div>';
+        if(p.warnings.length)h+='<div class="banner warn"><b>確認してください（'+p.warnings.length+'件）</b><ul style="margin:6px 0 0;padding-left:18px">'+p.warnings.map(function(w){return '<li>'+esc(w)+'</li>'}).join('')+'</ul></div>';
+        $('#impPrev').innerHTML=h;$('#impGo').disabled=!(p.counts.residents||p.counts.staff);
+      }).catch(function(e){$('#impPrev').innerHTML='<div class="banner err">'+esc(e.message)+'</div>'});
+    }catch(e){$('#impPrev').innerHTML='<div class="banner err">XLSXを読めませんでした：'+esc(e.message)+'</div>'}
+  };rd.readAsArrayBuffer(f);
+});
+$('#impGo').addEventListener('click',function(){
+  if(!S.sheets)return;$('#impGo').disabled=true;
+  run('adminImport',S.sheets).then(function(r){msg('マスタを取り込みました（利用者 '+r.counts.residents+' 名・職員 '+r.counts.staff+' 名・用語 '+r.counts.terms+' 件）。Kebbi側は次回の masters.get で反映されます。','ok');$('#impPrev').innerHTML='';$('#xlsx').value='';
+    return run('adminLogin').then(function(ctx){S.ctx=ctx;fillSelects();loadMasters()})}).catch(function(e){$('#impGo').disabled=false;fail(e)});
+});
+
+// ---------- 端末 ----------
+function loadDevices(){run('adminDevices').then(function(list){
+  var h='<tr><th>端末ID</th><th>拠点</th><th>設置場所</th><th>状態</th><th>最終接続</th><th></th></tr>';
+  if(!list.length)h+='<tr><td colspan="6" class="muted" style="text-align:center;padding:20px">登録された端末はありません</td></tr>';
+  list.forEach(function(d){h+='<tr><td><b>'+esc(d.device_id)+'</b></td><td>'+esc(siteName(d.site_id))+'</td><td>'+esc(d.label)+'</td><td>'+(d.active?'<span class="tag ok">利用中</span>':'<span class="tag ng">停止</span>')+'</td><td>'+esc(fmt(d.last_seen_at)||'—')+'</td><td>'+(d.active?'<button class="btn danger" data-stop="'+esc(d.device_id)+'">停止</button>':'<button class="btn" data-start="'+esc(d.device_id)+'">再開</button>')+'</td></tr>'});
+  $('#devTbl').innerHTML=h;
+  document.querySelectorAll('[data-stop],[data-start]').forEach(function(b){b.addEventListener('click',function(){var id=b.dataset.stop||b.dataset.start;run('adminSetDeviceActive',id,!b.dataset.stop).then(loadDevices).catch(fail)})});
+}).catch(fail)}
+$('#devGo').addEventListener('click',function(){
+  run('adminRegisterDevice',$('#devId').value.trim(),$('#devSite').value,$('#devLabel').value.trim()).then(function(r){
+    var j=JSON.stringify(r.config,null,2);
+    $('#devOut').innerHTML='<div class="banner warn" style="margin-top:10px"><b>この設定は今だけ表示されます。</b>コピーしてKebbi開発者に安全な方法で渡してください（チャットの全体連絡やメールの本文に貼らない）。</div><pre class="code" id="cfg">'+esc(j)+'</pre><button class="btn" id="cfgCopy">コピー</button>';
+    $('#cfgCopy').addEventListener('click',function(){try{navigator.clipboard.writeText(j);$('#cfgCopy').textContent='コピーしました'}catch(e){}});
+    $('#devId').value='';loadDevices();
+  }).catch(fail);
+});
+
+// ---------- 設定 ----------
+function loadSettings(){$('#itemsEd').innerHTML=S.ctx.items.map(function(l,i){return '<label class="f">item_'+(i+1)+'<input type="text" class="itIn" value="'+esc(l)+'"></label>'}).join('')}
+$('#itemsGo').addEventListener('click',function(){
+  var v=Array.prototype.map.call(document.querySelectorAll('.itIn'),function(i){return i.value});
+  run('adminSaveItemLabels',v).then(function(l){S.ctx.items=l;$('#itemsMsg').innerHTML='<span style="color:var(--ok)">保存しました</span>'}).catch(function(e){$('#itemsMsg').innerHTML='<span style="color:var(--red)">'+esc(e.message)+'</span>'});
+});
+
+// 再読込時の自動ログイン（同じタブの間だけ）
+var saved=null;try{saved=sessionStorage.getItem('kc3key')}catch(_){}
+if(saved)login(saved);
+})();
+</script>
+<script>
+// 別のタブ（Kebbi操作デモ）で記録が変わったら、表示中の一覧を更新する
+window.addEventListener('storage',function(e){if(e.key!=='kc3demo_v1')return;var v=document.querySelector('nav a.on');if(!v)return;
+  var map={records:'#fGo',playback:'#pGo',dash:'#dGo'};var b=map[v.dataset.v]&&document.querySelector(map[v.dataset.v]);if(b)b.click();});
+</script>
+</body>
+</html>
