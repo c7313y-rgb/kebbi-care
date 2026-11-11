@@ -1,0 +1,1 @@
+{"name":"kebbi-mail-import","private":true,"scripts":{"test":"node --test tests/*.test.mjs","build":"node tools/build-production.mjs"},"type":"module"}

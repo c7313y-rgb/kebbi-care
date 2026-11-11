@@ -4,7 +4,7 @@
 <base target="_top">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>管理画面デモ｜Kebbi Care DB v3.2</title>
+<title>管理画面デモ｜Kebbi Care DB v3.3</title>
 <style>
 :root{--ink:#1d2b3a;--ink2:#3d4c5a;--mute:#6a7682;--line:#dfe3e6;--bg:#f4f5f2;--teal:#1f7a72;--teal-bg:#e3efed;--orange:#c95a24;--orange-bg:#f8e7dc;--blue:#2a5d9f;--blue-bg:#e2ebf6;--purple:#6a4c93;--purple-bg:#ece4f5;--red:#b3261e;--red-bg:#f9e2e0;--ok:#2e7d32}
 *{box-sizing:border-box}body{margin:0;font-family:"Hiragino Sans","Noto Sans JP","Yu Gothic UI","Meiryo",system-ui,sans-serif;color:var(--ink);background:var(--bg);font-size:14px;line-height:1.6}
@@ -38,12 +38,16 @@ dl.kv{display:grid;grid-template-columns:120px 1fr;gap:6px 12px;margin:0}dl.kv d
 .modal-bg{position:fixed;inset:0;background:rgba(20,30,40,.45);z-index:30;display:flex;align-items:center;justify-content:center;padding:16px}.modal{background:#fff;border-radius:12px;padding:18px;max-width:640px;width:100%}
 pre.code{background:#1d2b3a;color:#e8eef2;padding:12px;border-radius:8px;white-space:pre-wrap;word-break:break-all;font-size:12px}
 .login{max-width:420px;margin:60px auto}
+#v-mail .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+#v-mail label{display:block}#v-mail label>input:not([type=checkbox]),#v-mail select,#v-mail textarea{width:100%;display:block;margin-top:6px;padding:10px;border:1px solid #c6d1ce;border-radius:7px}
+#v-mail table{border-collapse:collapse;width:100%;text-align:left}#v-mail th,#v-mail td{padding:10px;border-bottom:1px solid #e0e6e3;font-size:13px}#v-mail details{margin-top:16px}#v-mail .card{margin-bottom:16px}
+@media(max-width:650px){#v-mail .grid{grid-template-columns:1fr}#v-mail .row{align-items:flex-start}#v-mail button{white-space:normal}}
 </style>
 </head>
 <body>
 <header><div><h1>Kebbi Care DB 管理画面</h1><div class="sub">ゆるり・あ鶴舞　申し送り・健康チェック・連絡事項（GENIAC実証）</div></div><div class="who" id="who"></div></header>
 <nav id="nav" class="hidden">
-  <a data-v="records">記録</a><a data-v="playback">再生状況</a><a data-v="dash">集計</a><a data-v="csv">CSV出力</a>
+  <a data-v="records">記録</a><a data-v="playback">再生状況</a><a data-v="dash">集計</a><a data-v="csv">CSV出力</a><a class="adm" data-v="mail">メール取込</a>
   <a data-v="masters" class="adm">マスタ</a><a data-v="faces" class="adm">顔画像</a><a data-v="devices" class="adm">Kebbi端末</a><a data-v="settings" class="adm">設定</a><a id="logout">ログアウト</a>
 </nav>
 <main>
@@ -94,6 +98,25 @@ pre.code{background:#1d2b3a;color:#e8eef2;padding:12px;border-radius:8px;white-s
     <div class="card"><h2>日別の件数</h2><div class="scroll" style="max-height:360px"><table class="t" id="dayTbl"></table></div></div>
   </section>
 
+  <section id="v-mail" class="view hidden">
+    <div class="card"><h2>メールからCSVを取り込む</h2><p>受信先 <b>generousadmin@gmail.com</b> に届いたKebbiの記録CSVを取り込みます。</p>
+    <p id="mailConnection" class="banner info">接続状態を確認しています…</p><div class="row"><b id="mailSchedule"></b><span id="mailLast" class="small muted"></span></div>
+    <p class="small">取り込んだ記録は「途中保存（確定待ち）」になります。内容を確認してから確定してください。</p>
+    <div id="mailMsg" class="banner info" role="status" aria-live="polite">初回は送信元を設定します。</div>
+    <div class="row"><button class="btn primary" id="mailSync" data-live="1">今すぐ取り込む</button><button class="btn" id="mailRetry" data-live="1">エラーを再試行</button><button class="btn" id="mailEnable" data-live="1">5分ごとの取込を開始</button><button class="btn" id="mailDisable" data-live="1">定期取込を停止</button></div>
+    <p class="small"><a href="https://c7313y-rgb.github.io/kebbi-care/db-demo/docs/manual.html" target="_blank" rel="noopener">図解マニュアルを開く</a></p></div>
+    <div class="card"><h2>取込設定</h2><div class="grid">
+    <label>CSV送信元のメールアドレス<textarea id="mailSenders" rows="2" placeholder="Kebbiで設定した送信元。複数は改行" data-live="1"></textarea></label>
+    <label>件名に含む文字（空欄なら指定なし）<input id="mailSubject" data-live="1"></label>
+    <label>取込先の施設<select id="mailSite" data-live="1"></select></label>
+    <label>この日以降の受信メール<input id="mailStart" type="date" data-live="1"></label>
+    <label>CSVの文字コード<select id="mailEncoding" data-live="1"><option>UTF-8</option><option>Shift_JIS</option></select></label>
+    <label><input id="mailOnOpen" type="checkbox" data-live="1"> 管理者ログイン時に毎回確認する</label></div>
+    <details><summary>開発者向け 列名の対応</summary><p class="small">既定の形式と列名が異なる場合だけ指定。例：{"staff_id":"担当者コード"}。IDや氏名からの推測はしません。</p><textarea id="mailMap" rows="4" data-live="1">{}</textarea></details>
+    <p><button class="btn primary" id="mailSave" data-live="1">設定を保存</button></p></div>
+    <div class="card hidden" id="mailDemoArea"><h2>架空CSVで体験</h2><p>架空の利用者U901・職員S9002の申し送りを1件取り込みます。2回押しても二重登録されません。</p><button class="btn primary" id="mailDemoRun">架空CSVを取り込む</button></div>
+    <div class="card"><h2>取込履歴</h2><div style="overflow:auto"><table id="mailLog"></table></div><p class="small muted">同じファイルは重複を除外します。要確認のファイルは理由を確認し、設定やマスタの修正後に「エラーを再試行」を押してください。</p></div>
+  </section>
   <section id="v-csv" class="view hidden">
     <div class="card">
       <h2>CSV出力</h2>
@@ -168,6 +191,8 @@ pre.code{background:#1d2b3a;color:#e8eef2;padding:12px;border-radius:8px;white-s
 <script src="sheets.js"></script>
 <script src="gas-code.js"></script>
 <script src="runtime.js"></script>
+<script src="mail-import.js"></script>
+<script src="mail-ui.js"></script>
 <script>
 (function(){
 'use strict';
@@ -199,7 +224,7 @@ function login(k){
     $('#v-login').classList.add('hidden');$('#nav').classList.remove('hidden');
     $('#who').textContent=ctx.role==='admin'?'管理者としてログイン中':'閲覧者としてログイン中';
     document.querySelectorAll('.adm').forEach(function(el){el.classList.toggle('hidden',ctx.role!=='admin')});
-    fillSelects();show(location.hash.slice(1)||'records');
+    fillSelects();show(location.hash.slice(1)||'records');if(typeof mailOnOpen==='function')mailOnOpen();
   }).catch(function(e){S.key=null;try{sessionStorage.removeItem('kc3key')}catch(_){}fail(e)});
 }
 $('#logout').addEventListener('click',function(){try{sessionStorage.removeItem('kc3key')}catch(_){}location.reload()});
@@ -211,17 +236,17 @@ function fillSelects(){
 }
 
 // ---------- 画面切替 ----------
-var VIEWS=['records','playback','dash','csv','masters','faces','devices','settings'];
+var VIEWS=['records','playback','dash','csv','mail','masters','faces','devices','settings'];
 document.querySelectorAll('#nav a[data-v]').forEach(function(a){a.addEventListener('click',function(){show(a.dataset.v)})});
 function show(v){
   if(VIEWS.indexOf(v)<0)v='records';
-  if(S.role!=='admin'&&['masters','faces','devices','settings'].indexOf(v)>=0)v='records';
+  if(S.role!=='admin'&&['mail','masters','faces','devices','settings'].indexOf(v)>=0)v='records';
   try{history.replaceState(null,'','#'+v)}catch(_){}
   VIEWS.forEach(function(x){$('#v-'+x).classList.toggle('hidden',x!==v)});
   document.querySelectorAll('#nav a[data-v]').forEach(function(a){a.classList.toggle('on',a.dataset.v===v)});
   msg('');
   if(v==='records')loadRecords();if(v==='playback')loadPlayback();if(v==='dash')loadDash();
-  if(v==='masters')loadMasters();if(v==='faces')loadFaces();if(v==='devices')loadDevices();if(v==='settings')loadSettings();
+  if(v==='mail')loadMail();if(v==='masters')loadMasters();if(v==='faces')loadFaces();if(v==='devices')loadDevices();if(v==='settings')loadSettings();
 }
 
 // ---------- 記録 ----------
@@ -461,6 +486,8 @@ $('#fsOn').addEventListener('change',function(){var on=$('#fsOn').checked;
   $('#fsX').addEventListener('click',closeLayer);$('#fsGo').addEventListener('click',function(){closeLayer();setFs(true)});
 });
 
+window.kc3MailInit({S:S,$:$,run:run,msg:msg,esc:esc,fmt:fmt,loadRecords:loadRecords,show:show});
+
 // 再読込時の自動ログイン（同じタブの間だけ）
 var saved=null;try{saved=sessionStorage.getItem('kc3key')}catch(_){}
 if(saved)login(saved);
@@ -473,3 +500,4 @@ window.addEventListener('storage',function(e){if(e.key!=='kc3demo_v32')return;va
 </script>
 </body>
 </html>
+

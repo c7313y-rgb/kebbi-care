@@ -1,4 +1,4 @@
-/* Kebbi Care DB v3.2 Apps Script（本番コードをそのまま同梱） */
+/* Kebbi Care DB v3.3 Apps Script（本番コードをそのまま同梱） */
 // ===== Store.gs（本番と同一） =====
 /**
  * Store.gs — スプレッドシートの読み書き（Kebbi Care DB v3）
@@ -6,7 +6,7 @@
  */
 
 var TZ_ = 'Asia/Tokyo';
-var API_VERSION_ = '3.2';
+var API_VERSION_ = '3.3';
 
 var REC_COLS_ = ['record_id', 'revision', 'site_id', 'type', 'status', 'resident_id', 'staff_id', 'recorded_at',
   'source_text', 'ai_summary', 'confirmed_text', 'item_1', 'item_2', 'item_3', 'item_4', 'item_5', 'item_6', 'item_7', 'item_none',
@@ -27,7 +27,9 @@ var SCHEMA_ = {
   sites: ['site_id', 'name', 'aliases'],
   devices: ['device_id', 'site_id', 'label', 'token_hash', 'active', 'created_at', 'last_seen_at'],
   settings: ['key', 'value'],
-  import_log: ['at', 'summary']
+  import_log: ['at', 'summary'],
+  mail_imports: ['key','message_id','part_id','file_name','received_at','sender','file_hash','status','rows','added','skipped','error','at'],
+  mail_rows: ['key','record_id','file_hash','at']
 };
 
 var DEFAULT_ITEMS_ = ['食事', '排泄', '睡眠', 'バイタル', '服薬', '様子・気分', '特記事項']; // 仮置き。ジェネラス確定後に管理画面で変更
@@ -574,7 +576,7 @@ var TEXT_LIMIT_ = 20000;
  *   仕分け　：ai_items（AIの仕分け）と items（職員確認後）を別々に保持。7項目＋item_none（該当せず）
  *   日時　　：recorded_at（記録の日時）・ai_processed_at（AI処理）・created_at／updated_at／confirmed_at（サーバー）・操作履歴（events）
  */
-function saveRecord_(dev, r, baseRevision) {
+function prepareRecord_(dev, r) {
   var m = loadMasters_();
   var id = str_(r.record_id).trim();
   if (!/^[A-Za-z0-9_\-:.]{8,80}$/.test(id)) throw apiError_('VALIDATION', 'record_id は端末で作る8〜80文字の英数字（UUID推奨）にしてください');
@@ -612,7 +614,12 @@ function saveRecord_(dev, r, baseRevision) {
   if (status === 'confirmed' && !rec.confirmed_text.trim()) throw apiError_('VALIDATION', '確定（confirmed）には confirmed_text（職員が確認した本文）が必要です');
   if (!(rec.source_text + rec.ai_summary + rec.confirmed_text + ITEM_KEYS_.map(function (k) { return items[k]; }).join('')).trim())
     throw apiError_('VALIDATION', '本文（source_text / ai_summary / confirmed_text / items）がすべて空です');
-  return upsert_(rec, baseRevision, staff.staff_id, status === 'confirmed' ? '確定保存' : '途中保存');
+  return rec;
+}
+
+function saveRecord_(dev, r, baseRevision) {
+  var rec = prepareRecord_(dev, r);
+  return upsert_(rec, baseRevision, rec.staff_id, rec.status === 'confirmed' ? '確定保存' : '途中保存');
 }
 
 /** items はキー item_1〜item_7・item_none、または項目名（例：食事・該当せず）で受け付ける */
@@ -1330,3 +1337,4 @@ function selfTest_() {
 
 /** 自己診断用の架空の画像（灰色の人型。160×160） */
 var SELFTEST_FACE_ = '/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDABQODxIPDRQSEBIXFRQYHjIhHhwcHj0sLiQySUBMS0dARkVQWnNiUFVtVkVGZIhlbXd7gYKBTmCNl4x9lnN+gXz/2wBDARUXFx4aHjshITt8U0ZTfHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHz/wAARCACgAKADASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDeooopiCiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooqNp4lOC4/DmgCSioxcRE4Dj8eKkByMjpQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFRyzLEOeSegFPkcIhY9qznYuxZupoAWSV5D8x49O1MoooAKcjshypIptFAF+GdZODw3p61LWYCQQR1FaEMnmxhu/Q0APooooAKKKKACiiigAooooAKKKKACiiigCreNyqfiaq1NdH9+3tioaACiiigAooooAKsWjYl29mFV6fEcSpj1FAGjRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAFG6GJifUZqGrl4mVDjt1qnQAUUUUAFFFFABUkA3TIB65qOrNmmWLnoOBQBbooooAKKKKACiiigAooooAKKKKACiiigAIBBB6Gs+aIxPjnHY1oUjKrjDAEUAZlFWJLVgfk+YfrUDKVOGBB96AEopQCTgAk+1TJau33vlHvQBHGhkcKP/wBVaCKEUKvQUiRrGuFH4+tOoAKKKKACiiigAooooAKKKKACiiigCGa48pwu3PGetR/bP+mf6028/wBaP92q9AFr7Z/0z/Wj7Z/0z/WqtFAFr7Z/0z/Wj7Z/0z/WqtFAFr7Z/wBM/wBaPtn/AEz/AFqrRQBa+2f9M/1o+2f9M/1qrRQBa+2f9M/1p8Vz5kgXZjPfNUqltv8AXr+P8qAL9FFFABRRRQAUUUUAFFFFAFO8/wBaP92q9WLz/Wj/AHar0AFFFFABRRRQAUUUUAFFFFABUtt/r1/H+VRVLbf69fx/lQBfooooAKKKKACiiigAooooAp3n+tH+7VerF5/rR/u1XoAKKKKACiiigAooooAKKKKACpbb/Xr+P8qiqW2/16/j/KgC/RRRQAUUUUAFFFFABRRRQBTvP9aP92q9WLz/AFo/3ar0AFFFFABRRRQAUUUUAFFFFABUtt/r1/H+VRVLbf69fx/lQBfooooAKKKKAP/Z';
+
