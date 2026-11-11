@@ -1,68 +1,51 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Kebbi Care DB 管理アプリ</title>
-<style>
-:root{--ink:#1d2b3a;--mute:#6a7682;--line:#dfe3e6;--bg:#f4f5f2;--teal:#1f7a72;--orange:#c95a24;--blue:#2a5d9f}
-*{box-sizing:border-box}body{margin:0;font-family:"Hiragino Sans","Noto Sans JP","Yu Gothic UI","Meiryo",system-ui,sans-serif;color:var(--ink);background:var(--bg);line-height:1.7}
-header{background:var(--ink);color:#f6f4ef;padding:28px 20px}header h1{margin:0;font-size:24px}header p{margin:6px 0 0;color:#c9d3dc}
-main{max-width:1000px;margin:0 auto;padding:22px 16px 60px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
-.card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px}
-.card h2{margin:0 0 6px;font-size:19px}
-a.btn{display:inline-block;margin-top:10px;padding:11px 20px;border-radius:10px;color:#fff;text-decoration:none;font-weight:700}
-.k{background:var(--orange)}.a{background:var(--teal)}
-ol{padding-left:20px}li{margin:4px 0}
-code{background:#eef1f2;padding:1px 6px;border-radius:4px}
-.warn{background:#f8e7dc;color:#7a3412;border-radius:10px;padding:12px 14px;font-size:14px}
-button{font:inherit;padding:8px 14px;border-radius:8px;border:1px solid var(--line);background:#fff;cursor:pointer}
-table{border-collapse:collapse;width:100%;font-size:14px}td,th{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left}
-</style>
-</head>
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#1a7563"><title>ジェネラス ケア記録</title><link rel="stylesheet" href="style.css"><script>window.KEBBI_PUBLIC_DEMO=true;</script><link rel="stylesheet" href="public.css"></head>
 <body>
-<header><h1>Kebbi Care DB 管理アプリ</h1><p>ゆるり・あ鶴舞 の申し送り・7項目＋該当せず・健康チェック・連絡事項の「保存・再生・CSV取得」を、ブラウザだけで試せます。</p></header>
+<div id="sampleBanner" class="sample-banner public-banner"><span>公開デモ・架空データ</span><button data-production-open>本番へ</button><a href="docs/manual.html">マニュアル</a><button id="leaveSample" hidden disabled>実データに戻る</button></div>
+<aside class="sidebar">
+ <a class="brand" href="#dashboard"><span class="brand-mark">k</span><span>Generous<small>Kebbi ケア記録</small></span></a>
+ <div class="workspace-label">ケア管理</div>
+ <nav aria-label="メインメニュー"><button data-view="dashboard" class="active"><span data-icon="dashboard"></span>ダッシュボード</button><button data-view="records"><span data-icon="list"></span>記録一覧<span id="navCount" class="count"></span></button><button data-view="upload"><span data-icon="upload"></span>データ取込</button><button data-view="settings" class="mobile-settings"><span data-icon="settings"></span>設定・保存</button></nav>
+ <div class="side-bottom"><button data-view="settings"><span data-icon="settings"></span>設定・データ保存</button><div class="storage-status"><span class="dot"></span><span id="storageLabel">この端末に保存</span></div><small id="savedAt">読み込み中…</small><button id="sampleButton" class="text-button hidden">架空データで画面例を見る</button><span class="review-tag">Kebbi Care · 4.0</span></div>
+</aside>
 <main>
-  <div class="card" style="margin-bottom:24px;border:2px solid #1f7a72"><h2>ジェネラス用 本番管理アプリ</h2><p>受信先：<b>generousadmin@gmail.com</b><br>KebbiのAPI接続・メールCSVの自動取込・保存したCSVの手動取込に対応します。</p><p id="productionStatus" role="status">未接続：初回は環境設定が必要です。</p><label for="productionUrl">設置後に発行された本番管理画面URL</label><input id="productionUrl" type="url" placeholder="https://script.google.com/macros/s/…/exec" style="display:block;box-sizing:border-box;width:100%;padding:12px;margin:8px 0;font:inherit;border:1px solid #b7c9c4;border-radius:8px"><button id="productionOpen" style="background:#1f7a72;color:white">URLを保存して本番アプリを開く</button> <button id="productionForget">URL登録を解除</button><p><a href="setup.html">初回の環境設定ガイド</a>　<a href="docs/manual.html">図解マニュアル</a>　<a href="docs/Kebbi_Generous_操作マニュアル.pdf" download>PDFを保存</a></p><p style="font-size:13px;color:#6a7682">本番URLはこのブラウザに保存されます。メールや実データはGitHubへ送信しません。送信元メールアドレスは本番アプリで後から登録できます。</p></div>
-  <h2>架空データで操作を試す</h2>
-
-  <div class="warn">このデモは<b>架空の利用者・職員</b>で動きます。入力した内容はこのブラウザ内（localStorage）だけに保存され、どこにも送信されません。<b>実在の方の情報は入力しないでください。</b></div>
-  <div class="grid" style="margin-top:16px">
-    <div class="card"><h2>① Kebbi操作デモ</h2><p>職員としてログインし、申し送りをする・受ける（読み上げ）・健康チェック・連絡・確定待ちの確定を試せます。右側にKebbiとAPIの通信内容が出ます。</p><a class="btn k" href="kebbi.html">Kebbi操作デモを開く</a></div>
-    <div class="card"><h2>② 管理画面デモ</h2><p>記録の確認（要約前後・AI仕分けと確定後・操作履歴）・確定・訂正、再生状況、集計、CSV出力、マスタ（XLSX）取込と手入力、職員の顔画像の登録、端末登録、7項目名・氏名送信・顔画像配信の設定を試せます。</p><p>管理キー <code>demo-admin</code>　閲覧キー <code>demo-viewer</code></p><a class="btn a" href="admin.html">管理画面デモを開く</a></div>
+ <header class="topbar"><span id="breadcrumb">ケア管理 / ダッシュボード</span><div><button class="guide-top-button" data-guide-open aria-haspopup="dialog">操作ガイド</button><span class="private-label" id="modeLabel">共有DB</span><button id="refreshData" class="text-button hidden">更新</button><button id="logout" class="text-button hidden">ログアウト</button><button id="backupTop" class="icon-button" title="バックアップを保存" aria-label="バックアップを保存"><span data-icon="download"></span></button></div></header>
+ <div class="page-wrap">
+ <div id="globalNotice" role="status" class="notice hidden"></div>
+ <div class="page-heading"><div><span class="eyebrow">KEBBI CARE</span><h1 id="pageTitle">ダッシュボード</h1><p id="pageSub">申し送りと健康チェックを、ひとつの画面で確認。</p></div><div class="heading-actions"><button id="printButton" class="button secondary"><span data-icon="print"></span>PDF・印刷</button><button id="uploadButton" class="button primary"><span data-icon="plus"></span>CSVを取り込む</button></div></div>
+ <section class="kebbi-hero" aria-label="Kebbiとケア記録"><div class="hero-copy"><span class="eyebrow">WITH KEBBI, WITH YOUR TEAM</span><h2>日々の気づきを、<br>次のケアへ。</h2><p>Kebbiの記録を、チームの共有へ。<br>取り込みから確認まで、やさしくご案内します。</p><div class="hero-actions"><button class="button primary" data-view="upload">取り込みを始める <span aria-hidden="true">→</span></button><button class="text-button" data-guide-open>使い方を見る</button></div><div class="hero-steps"><span><b>01</b> CSVを選択</span><span><b>02</b> 照合・保存</span><span><b>03</b> 一覧で確認</span></div></div><figure class="hero-photo"><img src="assets/kebbi-care.jpg" alt="窓辺でKebbiと向き合う女性。提供画像によるイメージ。" fetchpriority="high" width="1400" height="1045"><figcaption>KEBBI × CARE　提供画像・イメージ</figcaption></figure></section>
+ <section id="filters" class="filters" aria-label="表示条件"><label>期間<div class="date-range"><input id="fromDate" type="date" aria-label="開始日"><span>–</span><input id="untilDate" type="date" aria-label="終了日"></div></label><label>利用者<select id="residentFilter"><option value="">すべての利用者</option></select></label><label>施設<select id="siteFilter"><option value="">すべての施設</option></select></label><div class="filter-actions"><button data-period="7">7日間</button><button data-period="30">30日間</button><button data-period="all" class="selected">全期間</button></div></section>
+ <section id="view-dashboard" class="view">
+  <div id="metrics" class="metrics"></div>
+  <div class="chart-grid"><section class="card"><div class="card-heading"><div><h2>記録の推移</h2><p id="chartPeriod">期間内の日別件数</p></div><div class="legend"><span><i class="teal"></i>申し送り</span><span><i class="sand"></i>健康チェック</span></div></div><div id="dailyChart" class="daily-chart"></div></section><section class="card"><div class="card-heading"><div><h2>管理の確認ポイント</h2><p>受取の遅れと健康チェックの記録状況</p></div></div><div id="managementStats" class="management-stats"></div></section></div>
+  <section class="card"><div class="card-heading"><div><h2>最近の記録</h2><p>表示条件に一致する最新の記録</p></div><button data-view="records" class="text-button">すべての記録を見る <span aria-hidden="true">→</span></button></div><div id="recentTable" class="table-wrap"></div></section>
+  <section class="card"><div class="card-heading"><div><h2>利用者ごとの集計</h2><p>同じ申し送りの複数項目・再生履歴は1件として集計</p></div><button id="exportStats" class="text-button">集計CSVを保存</button></div><div id="residentStats" class="table-wrap"></div></section>
+ </section>
+ <section id="view-records" class="view hidden"><section class="card"><div class="records-toolbar"><div class="segmented"><button data-list-mode="simple" class="selected">見やすい一覧</button><button data-list-mode="full">全項目の一覧</button></div><div class="inline"><select id="typeFilter" aria-label="記録の種類"><option value="">すべての記録</option><option value="handover">申し送り</option><option value="health">健康チェック</option><option value="notice">連絡事項</option></select><input id="searchRecords" type="search" placeholder="原文・要約・職員IDを検索" aria-label="記録を検索"><button id="exportRecords" class="button secondary small">CSV保存</button></div></div><div class="table-note" id="recordCount"></div><div id="recordTable" class="table-wrap"></div><div id="pagination" class="pagination"></div></section></section>
+ <section id="view-upload" class="view hidden"><div class="notice soft">CSV・Driveの取り込みは、施設の本番管理画面で利用できます。<button data-production-open class="text-button">本番を開く・初期設定</button></div>
+  <div class="intake-tabs segmented"><button data-intake="local" class="selected">CSVをアップロード</button><button data-intake="drive">Google Driveから取り込む</button></div>
+  <div id="localIntake">
+  <div class="steps"><span class="current"><b>1</b>CSVを選ぶ</span><span><b>2</b>照合結果を確認</span><span><b>3</b>取り込む</span></div>
+  <div class="upload-grid"><section class="card upload-card"><h2>CSVファイルを取り込む</h2><p class="muted">申し送り・健康チェック・再生履歴をまとめて選べます。</p><label class="drop-zone" id="dropZone"><input id="csvFiles" type="file" accept=".csv,text/csv" multiple><span class="drop-icon" data-icon="upload"></span><strong>ここにCSVをドラッグ</strong><span>または <u>ファイルを選択</u></span><small>1ファイル5MB・10,000行まで</small></label><div class="form-row"><label>取込先の施設<select id="importSite"></select></label><label>文字コード<select id="encoding"><option value="auto">自動判定</option><option value="utf-8">UTF-8</option><option value="shift_jis">Shift_JIS</option></select></label></div><div id="selectedFiles"></div><button id="checkCsv" class="button primary wide" disabled>マスタと照合する <span aria-hidden="true">→</span></button><details class="mapping-details"><summary>CSVの列名が認識されない場合</summary><p>左の項目に対応するCSVの列を選び、もう一度照合してください。</p><div id="columnMapping" class="form-grid"></div></details></section>
+  <aside class="card import-help"><span class="eyebrow">MASTER DATA</span><h2>照合に使うマスタ</h2><div id="masterSummary"></div><p>利用者ID・職員IDをもとに、登録済みの名前と照合します。</p><button data-view="settings" class="text-button">マスタを確認・変更する →</button><hr><h3>Driveから手動で取り込む</h3><ol><li>generousadmin@gmail.com でGoogle Driveにログイン</li><li>指定フォルダのCSVを確認し、ダウンロード</li><li>この画面に追加し、照合して取込</li></ol><p class="muted">Gmail添付のCSVも同じ操作で取り込めます。</p><p class="muted">自動メール取込・Kebbi接続は「設定・データ保存」から管理します。</p></aside></div>
+  <section id="importPreview" class="card hidden"></section>
   </div>
-  <div class="card" style="margin-top:16px">
-    <h2>おすすめの試し方（約5分）</h2>
-    <ol>
-      <li>Kebbi操作デモで <b>職員B（記録担当）</b> を選び、「申し送りをする」→「例1」→「国産AIで要約・7項目（デモ）」→「途中保存」（記録担当は確定できないため確定待ちになります）</li>
-      <li>ログアウトして <b>職員A（確定担当）</b> を選び、「確定待ち」で今の記録を確定</li>
-      <li>ログアウトして <b>職員C（外国人職員）</b> を選び、「申し送りを受ける」→「読み上げを始める」。やさしいモードで「SpO2（酸素飽和度）」のように説明つきで表示・発話します（端末のスピーカーで読み上げ。最後まで聞いた記録だけ「聞いた」になります）。「通常」に切り替えて違いも確認できます</li>
-      <li>管理画面デモ（<code>demo-admin</code>）で「記録」から今の記録を開くと、①要約前 → ②要約後 → ③確定本文、7項目＋該当せず（AIの仕分けと確定後）、記録・AI処理・確定・再生の日時と操作履歴を確認できます。「CSV出力」で記録・操作履歴をダウンロード</li>
-      <li>「顔画像」で <a href="sample/faces/9004.JPG">9004.JPG</a>・<a href="sample/faces/9005.jpg">9005.jpg</a>（図形で作った架空の画像。保存してから選ぶ）をまとめて選ぶと、ファイル名の番号で職員に結び付き、縮小・位置情報の除去をして登録します。Kebbi操作デモのログイン画面に、配信された顔画像が表示されます</li>
-      <li>「マスタ」→ 利用者で 氏名・ニックネームを、用語で 通常／やさしい の発話を編集できます（下線の項目をクリック）。「設定」で氏名をKebbiへ送るかを切り替えます（初期値：送らない）</li>
-      <li>「マスタ」で <a href="sample/masters_fictional.xlsx">架空のマスタ登録シート（XLSX）</a> を選ぶと、取込前の確認と取込を試せます</li>
-    </ol>
-  </div>
-  <div class="card" style="margin-top:16px">
-    <h2>デモと本番の違い</h2>
-    <table>
-      <tr><th>項目</th><th>デモ</th><th>本番（Google設置後）</th></tr>
-      <tr><td>データの保存先</td><td>このブラウザ内</td><td>Googleスプレッドシート（制限付き）</td></tr>
-      <tr><td>API・管理画面のプログラム</td><td colspan="2">同じもの（Apps Scriptのコードをブラウザで動かしています）</td></tr>
-      <tr><td>国産AIの要約・7項目＋該当せず</td><td>用語登録を使った簡易処理</td><td>東大モデル（Kebbi側で実装済み）</td></tr>
-      <tr><td>読み上げ</td><td>ブラウザの音声合成</td><td>Kebbiの音声合成（NUWA SDK）</td></tr>
-      <tr><td>ログイン</td><td>職員を選ぶ（配信された顔画像を表示）</td><td>顔認証・PIN（Kebbi側。顔画像は FaceSync で受信）</td></tr>
-      <tr><td>顔画像</td><td>図形で作った架空の画像。ブラウザ内に保存</td><td>Googleドライブの専用フォルダ（共有しない）。配信は初期値オフ</td></tr>
-    </table>
-    <p style="margin-top:14px"><button id="reset">デモのデータを初期状態に戻す</button> <span id="rmsg" style="font-size:14px;color:var(--mute)"></span></p>
-  </div>
-  <p style="font-size:13px;color:var(--mute)">2026-11-03　Edutex株式会社｜GENIAC-PRIZE 2026 Kebbi Care Shift OS 実証用</p>
+  <section id="driveIntake" class="card hidden"><div class="card-heading"><div><h2>Google Driveから直接取り込む</h2><p>generousadmin@gmail.com の指定フォルダからCSVを読み込みます。</p></div><button id="driveRefresh" class="button secondary small">一覧を更新</button></div><div id="driveNotice" class="notice soft">フォルダURLは後から登録できます。</div><details id="driveSettings" open><summary>取込フォルダの設定</summary><div class="form-grid"><label class="full-span">Google DriveのフォルダURL<input id="driveFolderUrl" type="url" placeholder="https://drive.google.com/drive/folders/..."></label><label>取込先の施設<select id="driveSite"></select></label><label>文字コード<select id="driveEncoding"><option value="auto">自動判定</option><option value="UTF-8">UTF-8</option><option value="Shift_JIS">Shift_JIS</option></select></label></div><div class="drive-checks"><label><input id="driveAuto" type="checkbox">新しいCSVを5分ごとに自動取込</label><label><input id="driveOnOpen" type="checkbox" checked>管理者ログイン時にも確認</label></div><button id="driveSave" class="button primary">フォルダを接続する</button><p class="small-note muted">対象フォルダ直下のCSVが対象です。元のCSVは移動・削除しません。</p></details><div class="drive-toolbar"><input id="driveSearch" type="search" placeholder="CSVファイル名で検索" aria-label="Drive内のCSVを検索"><button id="driveSearchButton" class="button secondary small">検索</button><button id="driveSync" class="button secondary small">新しいCSVを今すぐ取込</button></div><div id="driveFileList" class="table-wrap"></div><button id="driveMore" class="text-button hidden">次のファイルを表示</button><button id="driveCheck" class="button primary" disabled>選択したCSVを照合する</button><div id="drivePreview"></div></section>
+  <section class="card"><div class="card-heading"><div><h2>取込履歴</h2><p>登録内容は自動保存されます。</p></div></div><div id="importHistory" class="table-wrap"></div></section>
+ </section>
+ <section id="view-settings" class="view hidden"><div class="settings-grid">
+  <section class="card"><h2>マスタデータ</h2><p class="muted">添付の登録シートと同じ形式のXLSXを使用します。</p><div id="masterInfo"></div><label class="button secondary file-button">マスタXLSXを選択<input id="masterFile" type="file" accept=".xlsx"></label><div id="masterPreview"></div><details><summary>登録済みの利用者・職員</summary><div id="masterLists" class="master-lists"></div></details></section>
+  <section class="card"><h2>データの保存</h2><p id="saveDescription">施設の記録は共通のDBに保存します。どの端末からも、管理キーでログインして同じデータを確認できます。</p><div class="notice soft" id="saveNote">日々の記録は自動保存されます。定期的にバックアップも保存してください。</div><div id="storageInfo" class="small-note muted"></div><button id="backup" class="button primary"><span data-icon="download"></span>すべてのデータを保存</button><p class="muted">マスタ・記録・再生履歴・取込履歴をJSONで保存します。</p><label class="button secondary file-button">バックアップから復元<input id="restoreFile" type="file" accept=".json"></label><div id="restorePreview"></div></section>
+  <section class="card full-span"><div class="guide-settings"><div><span class="eyebrow">KEBBI GUIDE</span><h2>いつでも、使い方を確認</h2><p class="muted">操作手順を文字と音声でご案内します。再生・停止はご自身で選べます。</p></div><button class="button secondary" data-guide-open>操作ナビを開く</button></div></section><section class="card full-span"><h2>連携の設定</h2><p class="muted" id="connectionDescription">この確認版は端末内で動作します。本番公開時は、既存のKebbi API・Gmail自動取込と同じデータを表示する構成です。</p><div class="connection-cards"><div><span data-icon="robot"></span><h3>Kebbi端末</h3><p>従来の接続URLと端末トークンを利用</p><span class="status neutral" id="deviceConnection">本番接続前</span></div><div><span data-icon="mail"></span><h3>メール自動取込</h3><p>generousadmin@gmail.com</p><span class="status neutral" id="mailConnection">Google側の初回設定が必要</span></div><div><span data-icon="upload"></span><h3>CSVアップロード</h3><p>ファイル選択と照合だけで取り込み</p><span class="status neutral">本番で利用できます</span></div></div><div id="productionControls" class="hidden"></div></section>
+ </div></section>
+ <footer>ジェネラス ケア記録 <span>表示された集計は、取り込んだ記録を対象にしています。</span></footer>
+ </div>
 </main>
-<script>
-document.getElementById('reset').onclick=function(){try{localStorage.removeItem('kc3demo_v32')}catch(e){}document.getElementById('rmsg').textContent='初期状態に戻しました。次にデモを開くと最初のデータから始まります。'};
-</script>
-<script src="launcher.js"></script>
-</body>
-</html>
-
+<dialog id="detailDialog" class="detail-dialog"><div class="dialog-top"><span class="eyebrow">RECORD DETAILS</span><button class="icon-button close-dialog" aria-label="閉じる">×</button></div><div id="detailContent"></div></dialog>
+<dialog id="pdfDialog" class="pdf-dialog"><div class="dialog-top"><h2>PDFプレビュー・印刷</h2><button class="text-button" data-guide-open>使い方</button><button class="icon-button close-dialog" aria-label="閉じる">×</button></div><div class="pdf-layout"><aside><label>出力内容<select id="pdfContent"><option value="detail">記録の詳細（全項目）</option><option value="summary">ダッシュボード・集計</option></select></label><label>用紙サイズ<select id="pdfSize"><option value="A4">A4</option><option value="A3">A3</option></select></label><label>向き<select id="pdfOrientation"><option value="portrait">縦</option><option value="landscape">横</option></select></label><label>文字サイズ<select id="pdfFont"><option value="10">標準 10pt</option><option value="12" selected>大きめ 12pt</option><option value="14">さらに大きく 14pt</option></select></label><p id="pdfDescription" class="muted"></p><button id="refreshPdf" class="button secondary wide">プレビューを更新</button><button id="downloadPdf" class="button primary wide" disabled>PDFを保存</button><button id="printPdf" class="button secondary wide" disabled>PDFを開いて印刷</button><p class="small-note">印刷画面で倍率・余白・プリンターを調整できます。</p></aside><div class="pdf-frame-wrap"><div id="pdfBusy">PDFを作成しています…</div><iframe id="pdfFrame" title="PDFプレビュー"></iframe></div></div></dialog>
+<button id="guideLauncher" class="guide-launcher" data-guide-open aria-label="Kebbiの操作ガイドを開く" aria-haspopup="dialog"><span class="guide-avatar"><img src="assets/kebbi-guide.jpg" alt=""></span><span><b>Kebbi 操作ガイド</b><small id="guideMiniText">操作をお手伝いします</small></span><span aria-hidden="true">?</span></button>
+<audio id="guideAudio" preload="none" playsinline aria-hidden="true"></audio>
+<dialog id="guideDialog" class="guide-dialog" aria-labelledby="guideTitle"><div class="guide-dialog-header"><span class="guide-avatar"><img src="assets/kebbi-guide.jpg" alt=""></span><div><span class="eyebrow">YOUR CARE COMPANION</span><h2 id="guideTitle">Kebbi 操作ガイド</h2></div><button id="guideClose" class="icon-button" aria-label="操作ガイドを閉じる">×</button></div><div class="guide-body"><span class="guide-context-label">いまの画面の使い方</span><h3 id="guideContext"></h3><p id="guideText"></p><ol id="guideSteps" class="guide-steps"></ol><section class="guide-audio"><div class="guide-audio-heading"><h3>音声で確認する</h3><span id="guideVoiceBadge" class="status neutral">Kebbi再現音声</span></div><p id="guideVoiceNote" class="small-note muted"></p><div class="guide-audio-buttons"><button id="guidePlay" class="button primary" disabled>案内を再生</button><button id="guideStop" class="button secondary" disabled>停止</button></div><label class="guide-auto"><input id="guideAuto" type="checkbox" disabled>この利用中、画面切替時にも案内する</label><p id="guideAudioStatus" role="status" class="guide-audio-status"></p><small>音声は固定の操作説明です。利用者名・記録本文は読み上げません。</small></section></div></dialog>
+<div id="toast" role="status" class="toast hidden"></div>
+<script src="xlsx.full.min.js"></script><script src="pdf-lib.min.js"></script><script src="care-core.js"></script><script src="pdf-report.js"></script><script src="drive-ui.js"></script><script src="app.js"></script><script src="voice-assets.js"></script><script src="kebbi-guide.js"></script>
+<dialog id="productionDialog" class="production-dialog" aria-labelledby="productionTitle"><div class="dialog-top"><h2 id="productionTitle">施設の本番管理画面</h2><button id="productionClose" class="icon-button" aria-label="閉じる">×</button></div><p>施設の記録は、Googleに設置した本番アプリで共有・保存します。発行されたURLを登録して開いてください。</p><form id="productionForm"><label>本番URL<input id="productionUrl" type="url" required placeholder="https://script.google.com/macros/s/…/exec" autocomplete="url"></label><button class="button primary">本番アプリを開く</button></form><p id="productionStatus" role="status" class="small-note"></p><button id="productionForget" class="text-button">このブラウザのURL登録を解除</button><div class="notice soft"><strong>初めて利用する場合</strong><p>generousadmin@gmail.com でGoogle側の初期設定が必要です。</p><a href="setup.html">図解の環境設定ガイドを開く →</a></div><p class="small-note muted">管理キーは本番アプリ内で入力します。この公開ページはキーを受け取りません。公開デモには実データを保存しません。</p></dialog><script src="public-launcher.js"></script></body></html>

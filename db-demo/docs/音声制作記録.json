@@ -1,0 +1,98 @@
+[
+  {
+    "key": "dashboard",
+    "display_text": "期間と利用者を選ぶと、表示が変わります。記録の数だけでなく、まだ受け取りの記録がないものや、健康チェックの状況を確認できます。",
+    "spoken_text": "期間と利用者を選ぶと、表示が変わります。記録の数だけでなく、まだ受け取りの記録がないものや、健康チェックの状況を確認できます。",
+    "duration": 11.440041666666668,
+    "sample_rate": 24000,
+    "tokens": 143,
+    "elapsed": 18.3145489692688,
+    "reference_start": 13,
+    "reference_end": 26.7,
+    "model": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-4bit"
+  },
+  {
+    "key": "records",
+    "display_text": "期間と利用者を選んでください。見たい記録を押すと、話した内容や要約、受け取った職員、健康チェックの結果が表示されます。",
+    "spoken_text": "期間と利用者を選んでください。見たい記録を押すと、話した内容や要約、受け取った職員、健康チェックの結果が表示されます。",
+    "duration": 11.36,
+    "sample_rate": 24000,
+    "tokens": 142,
+    "elapsed": 23.68731117248535,
+    "reference_start": 13,
+    "reference_end": 26.7,
+    "model": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-4bit"
+  },
+  {
+    "key": "upload",
+    "display_text": "CSVファイルを選び、保存する施設を確認します。画面の順番に沿って内容をチェックし、問題がなければ取り込んでください。同じCSVをもう一度入れても、同じ記録は増えません。",
+    "spoken_text": "シーエスブイファイルを選び、保存する施設を確認します。画面の順番に沿って内容をチェックし、問題がなければ取り込んでください。同じシーエスブイをもう一度入れても、同じ記録は増えません。",
+    "duration": 15.44,
+    "sample_rate": 24000,
+    "tokens": 193,
+    "elapsed": 27.86390995979309,
+    "reference_start": 13,
+    "reference_end": 26.7,
+    "model": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-4bit"
+  },
+  {
+    "key": "preview",
+    "display_text": "新しく登録する件数と、追加する件数を確認してください。修正が必要な場合は、CSVを直してもう一度チェックします。問題がなければ、取り込むボタンを押してください。",
+    "spoken_text": "新しく登録する件数と、追加する件数を確認してください。修正が必要な場合は、シーエスブイを直してもう一度チェックします。問題がなければ、取り込むボタンを押してください。",
+    "duration": 15.92,
+    "sample_rate": 24000,
+    "tokens": 199,
+    "elapsed": 28.0569269657135,
+    "reference_start": 13,
+    "reference_end": 26.7,
+    "model": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-4bit"
+  },
+  {
+    "key": "drive",
+    "display_text": "初めに、Google DriveのフォルダURLを登録してください。一覧からCSVを選び、内容を確認して取り込みます。新しいファイルを自動で取り込む設定もできます。",
+    "spoken_text": "初めに、グーグルドライブのフォルダユーアールエルを登録してください。一覧からシーエスブイを選び、内容を確認して取り込みます。新しいファイルを自動で取り込む設定もできます。",
+    "duration": 15.6,
+    "sample_rate": 24000,
+    "tokens": 195,
+    "elapsed": 26.64514183998108,
+    "reference_start": 13,
+    "reference_end": 26.7,
+    "model": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-4bit"
+  },
+  {
+    "key": "settings",
+    "display_text": "ここではマスタの登録、データの保存、接続の設定ができます。バックアップは、すべてのデータを保存するボタンから取得できます。",
+    "spoken_text": "ここではマスタの登録、データの保存、接続の設定ができます。バックアップは、すべてのデータを保存するボタンから取得できます。",
+    "duration": 10.64,
+    "sample_rate": 24000,
+    "tokens": 133,
+    "elapsed": 21.52780318260193,
+    "reference_start": 13,
+    "reference_end": 26.7,
+    "model": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-4bit"
+  },
+  {
+    "key": "pdf",
+    "display_text": "用紙サイズ、向き、文字サイズを選び、プレビューを更新してください。内容を確認したら、PDFを保存できます。印刷するときは、PDFを開いて印刷を押してください。",
+    "spoken_text": "用紙サイズ、向き、文字サイズを選び、プレビューを更新してください。内容を確認したら、ピーディーエフを保存できます。印刷するときは、ピーディーエフを開いて印刷を押してください。",
+    "duration": 14.4,
+    "sample_rate": 24000,
+    "tokens": 180,
+    "elapsed": 25.851001977920532,
+    "reference_start": 13,
+    "reference_end": 26.7,
+    "model": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-4bit"
+  },
+  {
+    "key": "saved",
+    "display_text": "データを保存しました。ダッシュボードや記録一覧から、取り込んだ内容を確認できます。",
+    "spoken_text": "データを保存しました。ダッシュボードや記録の一覧から、取り込んだ内容を確認できます。",
+    "duration": 7.28,
+    "sample_rate": 24000,
+    "tokens": 91,
+    "elapsed": 16.877713918685913,
+    "reference_start": 13,
+    "reference_end": 26.7,
+    "model": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-4bit"
+  }
+]

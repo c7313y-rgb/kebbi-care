@@ -1,17 +1,3 @@
-import fs from 'node:fs';
-import path from 'node:path';
-const root=path.resolve(import.meta.dirname,'..');
-const read=p=>fs.readFileSync(path.join(root,p),'utf8');
-const out=path.join(root,'db-demo','production');fs.mkdirSync(out,{recursive:true});
-fs.writeFileSync(path.join(out,'Code.gs'),read('db-demo/gas-code.js'));
-fs.writeFileSync(path.join(out,'MailImport.gs'),read('db-demo/mail-import.js'));
-let html=read('db-demo/admin.html').replace('<title>管理画面デモ｜Kebbi Care DB v3.3</title>','<title>Kebbi Care DB 管理画面</title>');
-html=html.replace(/  <div class="banner warn" id="demoBanner">[^\n]*<\/div>/,'  <div class="banner info">Kebbi Care DB 3.3 ｜ Gmail連携版 ｜ データはジェネラスのGoogle環境に保存されます。</div>');
-for(const file of ['sheets.js','gas-code.js','runtime.js'])html=html.replace('<script src="'+file+'"></script>','');
-html=html.replace('src="lib/xlsx.full.min.js"','src="https://c7313y-rgb.github.io/kebbi-care/db-demo/lib/xlsx.full.min.js"');
-html=html.replace('<script src="mail-import.js"></script>','');
-html=html.replace('<script src="mail-ui.js"></script>','<script>\n'+read('db-demo/mail-ui.js')+'\n</script>');
-html=html.replace(/https:\/\/c7313y-rgb.github.io\/kebbi-care\/db-demo\/docs\/manual.html/g,'https://c7313y-rgb.github.io/kebbi-care/db-demo/docs/manual.html');
-fs.writeFileSync(path.join(out,'Index.html'),html);
-fs.writeFileSync(path.join(out,'appsscript.json'),JSON.stringify({timeZone:'Asia/Tokyo',runtimeVersion:'V8',exceptionLogging:'STACKDRIVER',dependencies:{enabledAdvancedServices:[{userSymbol:'Gmail',serviceId:'gmail',version:'v1'}]},oauthScopes:['https://www.googleapis.com/auth/spreadsheets','https://www.googleapis.com/auth/drive','https://www.googleapis.com/auth/script.scriptapp','https://www.googleapis.com/auth/gmail.readonly'],webapp:{executeAs:'USER_DEPLOYING',access:'ANYONE_ANONYMOUS'}},null,2)+'\n');
-console.log('Generated production/Code.gs, MailImport.gs, Index.html, appsscript.json');
+// Production v4 is built from db-demo/source. Legacy demos remain separate.
+import {createRequire} from 'node:module';
+createRequire(import.meta.url)('./build-care-production.cjs');

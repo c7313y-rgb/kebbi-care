@@ -1,0 +1,3 @@
+import {chromium} from 'playwright';import path from 'node:path';
+const root=path.resolve(import.meta.dirname,'..'),browser=await chromium.launch({executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',headless:true,args:['--no-sandbox']});
+try{const p=await browser.newPage();await p.goto('file://'+path.join(root,'db-demo/docs/manual.html'));await p.emulateMedia({media:'print'});await p.evaluate(()=>document.fonts.ready);console.log(await p.locator('.page').evaluateAll(ps=>ps.map((p,i)=>({page:i+1,height:p.clientHeight,scroll:p.scrollHeight}))));await p.pdf({path:path.join(root,'db-demo/docs/Kebbi_Generous_操作マニュアル.pdf'),printBackground:true,preferCSSPageSize:true});}finally{await browser.close();}

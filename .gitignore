@@ -5,3 +5,8 @@ qa-output/
 *配布用*.csv
 *master.json
 workbook.json
+
+private/
+qa/
+**/master-seed.js
+**/*管理キー*.txt

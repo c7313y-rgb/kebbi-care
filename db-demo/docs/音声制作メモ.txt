@@ -1,0 +1,18 @@
+Kebbi再現音声の制作方法
+
+提供された音声見本を参照して、Macの中で8場面の操作説明を生成しました。外部音声サービスの契約やAPIキーは不要です。管理アプリにはMP3ファイルだけを同梱し、生成モデルは同梱しません。
+
+生成モデル: mlx-community/Qwen3-TTS-12Hz-1.7B-Base-4bit
+モデル版: 37e955a1deb861c088ae5f3a67043185f3d1a60c
+モデル情報: https://huggingface.co/mlx-community/Qwen3-TTS-12Hz-1.7B-Base-4bit
+原モデル: https://github.com/QwenLM/Qwen3-TTS
+実行ライブラリ: mlx-audio 0.6.5 / MLX 0.32.4
+実行場所: Apple Silicon Mac上の独立したPython環境
+参照音声: ユーザー提供kebbi-voice-sample.mp3の13.0〜26.7秒を使用
+書き出し: MP3、モノラル、24kHz、96kbps
+読み上げ内容: docs/voice-cues.jsonの固定の操作説明
+英字略語はCSV→シーエスブイ、PDF→ピーディーエフとして生成
+
+これは音声見本を参考に生成した合成音声です。オリジナル音声との完全一致を保証するものではありません。アプリでも「Kebbi再現音声」と表示しています。
+
+利用者の氏名、職員ID、施設のケア記録などを音声生成に送信していません。提供音声の利用・複製許諾は会話内で確認済みです。

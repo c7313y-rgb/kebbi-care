@@ -6,7 +6,7 @@
  */
 
 var TZ_ = 'Asia/Tokyo';
-var API_VERSION_ = '3.3';
+var API_VERSION_ = '4.0';
 
 var REC_COLS_ = ['record_id', 'revision', 'site_id', 'type', 'status', 'resident_id', 'staff_id', 'recorded_at',
   'source_text', 'ai_summary', 'confirmed_text', 'item_1', 'item_2', 'item_3', 'item_4', 'item_5', 'item_6', 'item_7', 'item_none',
@@ -32,7 +32,7 @@ var SCHEMA_ = {
   mail_rows: ['key','record_id','file_hash','at']
 };
 
-var DEFAULT_ITEMS_ = ['食事', '排泄', '睡眠', 'バイタル', '服薬', '様子・気分', '特記事項']; // 仮置き。ジェネラス確定後に管理画面で変更
+var DEFAULT_ITEMS_ = ['食事量','排尿','排便','体調変化','不穏行動','睡眠状況','服薬状況'];
 var ITEM_NONE_LABEL_ = '該当せず';   // 7項目のどれにも当てはまらない内容
 var ITEM_KEYS_ = ['item_1', 'item_2', 'item_3', 'item_4', 'item_5', 'item_6', 'item_7', 'item_none'];
 // 実証の対象施設は ゆるり・あ鶴舞 の1拠点。職員の元の所属（KODOU・ほたる等）は staff.home_office に残す
@@ -490,8 +490,8 @@ function mastersForDevice_(m) {
  * 仕様は docs/開発者向け仕様書 を参照。
  */
 
-function doGet() {
-  return HtmlService.createHtmlOutputFromFile('Index')
+function doGet(e) {
+  return HtmlService.createHtmlOutputFromFile(e && e.parameter && e.parameter.view === 'advanced' ? 'Advanced' : 'Index')
     .setTitle('Kebbi Care DB 管理画面')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
@@ -1008,7 +1008,7 @@ function adminImport(key, sheets) {
   needAdmin_(key);
   var r = convertWorkbook_(sheets || {});
   if (!r.residents.length && !r.staff.length) throw new Error('利用者・職員が1件も読み取れませんでした。取込を中止しました');
-  withLock_(function () { importMasters_(r); });
+  withLock_(function () { careBackup_('before-master'); importMasters_(r); });
   return { counts: r.counts, warnings: r.warnings };
 }
 

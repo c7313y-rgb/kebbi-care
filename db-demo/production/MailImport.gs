@@ -144,6 +144,7 @@ function mailSaveLog_(entry){
   if(i>=0)writeRow_('mail_imports',t.rowNo[i],entry);else appendRows_('mail_imports',[entry]);
 }
 function mailProcess_(meta,text,c,retry){
+  if (typeof careProcessMail_ === 'function') return careProcessMail_(meta,text,c,retry);
   var logs=readTable_('mail_imports').rows,hash=sha256_(text.replace(/^\uFEFF/,'')),key=sha256_(meta.message_id+'|'+meta.part_id);
   var prev=logs.filter(function(r){return r.key===key;})[0];
   if(prev&&(prev.status==='done'||prev.status==='duplicate'||(!retry&&prev.status==='error')))return {ignored:true};

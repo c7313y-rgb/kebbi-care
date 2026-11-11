@@ -1,0 +1,12 @@
+Kebbi 操作ナビの音声組込
+
+8場面のMP3をapp/assets/voice/へ実装済みです。
+
+1. docs/voice-cues.json の各 text が読み上げ原稿です。
+2. app/assets/voice/<場面>.mp3 が音声です。場面名：dashboard / records / upload / preview / drive / settings / pdf / saved。
+3. app/voice-assets.js の対応表を更新すれば、追加・差し替えできます。音声見本そのものを操作説明の代わりに再生しないでください。
+4. node tools/build-production.cjs を実行します。画像・音声はproduction/Index.htmlに内包され、Googleへの追加アップロードや音声生成APIキーは不要です。
+5. 「操作ガイド → 案内を再生」で確認します。ページを開くだけでは再生しません。「停止」、ガイドを閉じる、画面を閉じると音声を停止します。画面切替時の自動案内は、利用者が選んだセッション中だけ有効です。
+6. 音声を作り直す場合は、独立したPython環境へmlx-audio==0.6.5、soundfile、imageio-ffmpegを導入し、tools/generate-voice.pyを使用します。提供された音声の権利・許諾を守って使用してください。
+
+新たな音声生成時だけMac内でモデルを実行します。管理アプリの利用端末はWindows PC・Mac・タブレット・スマートフォンのブラウザで構いません。
