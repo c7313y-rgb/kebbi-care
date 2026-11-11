@@ -115,6 +115,7 @@ pre.code{background:#1d2b3a;color:#e8eef2;padding:12px;border-radius:8px;white-s
     <details><summary>開発者向け 列名の対応</summary><p class="small">既定の形式と列名が異なる場合だけ指定。例：{"staff_id":"担当者コード"}。IDや氏名からの推測はしません。</p><textarea id="mailMap" rows="4" data-live="1">{}</textarea></details>
     <p><button class="btn primary" id="mailSave" data-live="1">設定を保存</button></p></div>
     <div class="card hidden" id="mailDemoArea"><h2>架空CSVで体験</h2><p>架空の利用者U901・職員S9002の申し送りを1件取り込みます。2回押しても二重登録されません。</p><button class="btn primary" id="mailDemoRun">架空CSVを取り込む</button></div>
+    <div class="card" id="manualCsvArea"><h2>メール添付CSVを手動で取り込む</h2><p>Gmailで添付CSVをパソコンに保存し、ここで選択します。Gmailへの接続なしでも、管理キーで取り込めます。</p><div class="grid"><label>CSVファイル<input id="csvFile" type="file" accept=".csv,text/csv"></label><label>取込先の施設<select id="csvSite"></select></label><label>ファイルの文字コード<select id="csvEncoding"><option>UTF-8</option><option>Shift_JIS</option></select></label></div><p><button class="btn" id="csvPreview">内容を確認</button> <button class="btn primary" id="csvImport" disabled>確認した内容を取り込む</button></p><div id="csvPreviewResult" role="status"></div><p class="small muted">1ファイル1MB・500行まで。確定待ちとして追加します。公開デモでは架空データだけを使用してください。</p></div>
     <div class="card"><h2>取込履歴</h2><div style="overflow:auto"><table id="mailLog"></table></div><p class="small muted">同じファイルは重複を除外します。要確認のファイルは理由を確認し、設定やマスタの修正後に「エラーを再試行」を押してください。</p></div>
   </section>
   <section id="v-csv" class="view hidden">

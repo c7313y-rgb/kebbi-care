@@ -115,6 +115,7 @@ pre.code{background:#1d2b3a;color:#e8eef2;padding:12px;border-radius:8px;white-s
     <details><summary>開発者向け 列名の対応</summary><p class="small">既定の形式と列名が異なる場合だけ指定。例：{"staff_id":"担当者コード"}。IDや氏名からの推測はしません。</p><textarea id="mailMap" rows="4" data-live="1">{}</textarea></details>
     <p><button class="btn primary" id="mailSave" data-live="1">設定を保存</button></p></div>
     <div class="card hidden" id="mailDemoArea"><h2>架空CSVで体験</h2><p>架空の利用者U901・職員S9002の申し送りを1件取り込みます。2回押しても二重登録されません。</p><button class="btn primary" id="mailDemoRun">架空CSVを取り込む</button></div>
+    <div class="card" id="manualCsvArea"><h2>メール添付CSVを手動で取り込む</h2><p>Gmailで添付CSVをパソコンに保存し、ここで選択します。Gmailへの接続なしでも、管理キーで取り込めます。</p><div class="grid"><label>CSVファイル<input id="csvFile" type="file" accept=".csv,text/csv"></label><label>取込先の施設<select id="csvSite"></select></label><label>ファイルの文字コード<select id="csvEncoding"><option>UTF-8</option><option>Shift_JIS</option></select></label></div><p><button class="btn" id="csvPreview">内容を確認</button> <button class="btn primary" id="csvImport" disabled>確認した内容を取り込む</button></p><div id="csvPreviewResult" role="status"></div><p class="small muted">1ファイル1MB・500行まで。確定待ちとして追加します。公開デモでは架空データだけを使用してください。</p></div>
     <div class="card"><h2>取込履歴</h2><div style="overflow:auto"><table id="mailLog"></table></div><p class="small muted">同じファイルは重複を除外します。要確認のファイルは理由を確認し、設定やマスタの修正後に「エラーを再試行」を押してください。</p></div>
   </section>
   <section id="v-csv" class="view hidden">
@@ -196,9 +197,9 @@ pre.code{background:#1d2b3a;color:#e8eef2;padding:12px;border-radius:8px;white-s
 window.kc3MailInit=function(api){
   'use strict';
   var S=api.S,$=api.$,run=api.run,msg=api.msg,esc=api.esc,fmt=api.fmt,loadRecords=api.loadRecords,show=api.show;
-  var demo=typeof KC3_DEMO!=='undefined',busy=false;
+  var demo=typeof KC3_DEMO!=='undefined',busy=false,csvPending=null;
   function note(t,kind){$('#mailMsg').textContent=t;$('#mailMsg').className='banner '+(kind||'info');}
-  function action(fn){if(busy)return;busy=true;document.querySelectorAll('#v-mail button').forEach(function(b){b.disabled=true;});return Promise.resolve().then(fn).catch(function(e){note(e.message||String(e),'err');}).finally(function(){busy=false;document.querySelectorAll('#v-mail button').forEach(function(b){b.disabled=demo&&b.dataset.live==='1';});});}
+  function action(fn){if(busy)return;busy=true;document.querySelectorAll('#v-mail button').forEach(function(b){b.disabled=true;});return Promise.resolve().then(fn).catch(function(e){note(e.message||String(e),'err');}).finally(function(){busy=false;document.querySelectorAll('#v-mail button').forEach(function(b){b.disabled=demo&&b.dataset.live==='1';});$('#csvImport').disabled=!csvPending;});}
   function result(r){if(r.not_configured)return;note('確認完了：新規 '+(r.added||0)+' 件、エラー '+(r.errors||0)+' 件、同一ファイル '+(r.duplicates||0)+' 件。'+(r.more?'続きがあります。「今すぐ取り込む」をもう一度押すか、次の定期実行をお待ちください。':''),r.errors?'warn':'ok');loadRecords();return window.loadMail(false);}
   window.loadMail=function(fill){
     return run('adminMailStatus').then(function(s){
@@ -209,6 +210,7 @@ window.kc3MailInit=function(api){
       var names={done:'取込済み',duplicate:'重複を除外',error:'要確認'};
       $('#mailLog').innerHTML='<tr><th>確認日時</th><th>ファイル</th><th>結果</th><th>新規</th><th>説明</th></tr>'+s.log.map(function(x){return '<tr><td>'+esc(fmt(x.at))+'</td><td>'+esc(x.file_name)+'</td><td>'+esc(names[x.status]||x.status)+'</td><td>'+esc(x.added||'0')+'</td><td>'+esc(x.error||('全 '+x.rows+' 件 ／ 登録済み '+x.skipped+' 件'))+'</td></tr>';}).join('');
       $('#mailDemoArea').classList.toggle('hidden',!demo);document.querySelectorAll('#v-mail [data-live]').forEach(function(el){el.disabled=demo;});
+      if(!$('#csvSite').options.length){$('#csvSite').innerHTML=S.ctx.sites.map(function(x){return '<option value="'+esc(x.site_id)+'">'+esc(x.name)+'</option>';}).join('');}
     }).catch(function(e){note(e.message||String(e),'err');});
   };
   window.mailOnOpen=function(){if(demo||S.role!=='admin')return;run('adminMailOnOpen').then(function(r){if(!r.not_configured){var t='メール確認：新規 '+r.added+' 件'+(r.errors?' ／ 要確認 '+r.errors+' 件':'');msg(esc(t)+' <a href="#mail" id="mailOpenLink">メール取込を確認</a>',r.errors?'warn':'ok');$('#mailOpenLink').onclick=function(e){e.preventDefault();show('mail');};loadRecords();}}).catch(function(e){msg('メール取込：'+esc(e.message)+' <a href="#mail" id="mailOpenLink">設定を確認</a>','warn');$('#mailOpenLink').onclick=function(e){e.preventDefault();show('mail');};});};
@@ -218,6 +220,10 @@ window.kc3MailInit=function(api){
   $('#mailEnable').onclick=function(){action(function(){return run('adminMailSchedule',true).then(function(){note('5分ごとの定期取込を開始しました。画面を閉じても動きます。','ok');return loadMail(false);});});};
   $('#mailDisable').onclick=function(){action(function(){return run('adminMailSchedule',false).then(function(){note('定期取込を停止しました。起動時取込は別の設定です。','info');return loadMail(false);});});};
   $('#mailDemoRun').onclick=function(){action(function(){return run('adminMailDemo','record_id,type,resident_id,staff_id,recorded_at,source_text,ai_summary,item_1\nmail-demo-example-001,handover,U901,S9002,2026-11-11T09:00:00+09:00,朝食は八割食べました,朝食を8割摂取,8割\n').then(function(r){if(r.error)throw new Error(r.error);return result({added:r.added||0,errors:0,duplicates:r.duplicate?1:0});});});};
+  function clearPreview(){csvPending=null;$('#csvImport').disabled=true;$('#csvPreviewResult').textContent='';}
+  ['#csvFile','#csvSite','#csvEncoding'].forEach(function(id){$(id).onchange=clearPreview;});
+  $('#csvPreview').onclick=function(){clearPreview();action(async function(){var f=$('#csvFile').files[0];if(!f)throw new Error('CSVファイルを選択してください');if(f.size>1048576)throw new Error('CSVは1MB以下にしてください');var text;try{text=new TextDecoder($('#csvEncoding').value,{fatal:true}).decode(await f.arrayBuffer());}catch(e){throw new Error('文字コードを確認してください');}var input={text:text,file_name:f.name,site_id:$('#csvSite').value},p=await run('adminCsvPreview',input);csvPending=Object.assign(input,{preview_token:p.token});$('#csvPreviewResult').innerHTML='<div class="banner info">全 '+p.total+' 件 ／ 新規 '+p.added+' 件 ／ 登録済み '+p.skipped+' 件</div>'+p.sample.map(function(r){return '<p><b>'+esc(r.resident_id||'連絡事項')+' ／ '+esc(r.staff_id)+'</b>　'+esc(fmt(r.recorded_at))+'<br>'+esc(r.text)+'</p>';}).join('');note('内容を確認し、「確認した内容を取り込む」を押してください。');});};
+  $('#csvImport').onclick=function(){action(async function(){if(!csvPending)throw new Error('先に「内容を確認」を押してください');var r=await run('adminCsvImport',csvPending);if(r.error)throw new Error(r.error);clearPreview();$('#csvFile').value='';await result({added:r.added||0,errors:0,duplicates:r.duplicate||r.ignored?1:0});});};
 };
 
 </script>

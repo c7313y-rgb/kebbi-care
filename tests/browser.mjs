@@ -26,5 +26,14 @@ try{
  await page.setViewportSize({width:390,height:844});await page.goto(`http://127.0.0.1:${port}/db-demo/`);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1));
  await page.goto(`http://127.0.0.1:${port}/db-demo/admin.html#mail`);await page.waitForSelector('#v-mail:not(.hidden)');assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1));
  await page.screenshot({path:path.join(root,'qa/mobile.png'),fullPage:true});
- assert.deepEqual(errors,[]);console.log('Browser PASS: launcher URL validation, demo import, deduplication, production settings + sync, mobile layout; no page errors.');
+ const manualCsv='record_id,type,resident_id,staff_id,recorded_at,source_text\nmanual-browser-001,handover,U901,S9002,2026-11-11T10:00:00+09:00,手動取込の架空記録\n';
+ await prodPage.setInputFiles('#csvFile',{name:'kebbi-test.csv',mimeType:'text/csv',buffer:Buffer.from(manualCsv)});
+ await prodPage.click('#csvPreview');await prodPage.waitForFunction(()=>document.querySelector('#csvPreviewResult').textContent.includes('新規 1 件'));
+ await prodPage.waitForFunction(()=>!document.querySelector('#csvImport').disabled);await prodPage.click('#csvImport');await prodPage.waitForFunction(()=>document.querySelector('#mailMsg').textContent.includes('新規 1 件'));
+ await prodPage.waitForTimeout(300);assert.ok(await prodPage.locator('#mailLog').getByText('[手動] kebbi-test.csv').count());
+ await prodPage.setInputFiles('#csvFile',{name:'kebbi-test.csv',mimeType:'text/csv',buffer:Buffer.from(manualCsv)});
+ await prodPage.click('#csvPreview');await prodPage.waitForFunction(()=>document.querySelector('#csvPreviewResult').textContent.includes('新規 0 件'));
+ await prodPage.waitForFunction(()=>!document.querySelector('#csvImport').disabled);await prodPage.click('#csvImport');await prodPage.waitForFunction(()=>document.querySelector('#mailMsg').textContent.includes('新規 0 件'));
+ await prodPage.waitForTimeout(300);await prodPage.locator('#manualCsvArea').screenshot({path:path.join(root,'qa/手動CSV取込.png')});
+ assert.deepEqual(errors,[]);console.log('Browser PASS: launcher, demo, settings, sync, manual CSV preview/import/reimport, mobile layout; no page errors.');
 }finally{await browser.close();await new Promise(r=>server.close(r));}

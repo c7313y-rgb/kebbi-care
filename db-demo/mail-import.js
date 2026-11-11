@@ -133,7 +133,7 @@ function mailPlan_(text,c,fileHash){
     if(seen[rec.record_id])throw new Error('同じCSV内で記録IDが重複しています：'+rec.record_id);seen[rec.record_id]=true;
     if(receipts[hash]===rec.record_id){skipped++;return;}
     rec.content_hash=contentHash_(rec);var old=existing[rec.record_id];
-    if(old){if(old.site_id!==rec.site_id||old.content_hash!==rec.content_hash)throw new Error('既存記録と内容が異なるため上書きしません：'+rec.record_id);skipped++;}
+    if(old){if(old.site_id!==rec.site_id||(old.content_hash!==rec.content_hash&&contentHash_(Object.assign({},old,{status:'draft'}))!==rec.content_hash))throw new Error('既存記録と内容が異なるため上書きしません：'+rec.record_id);skipped++;}
     else{var now=nowIso_();Object.assign(rec,{revision:'1',created_at:now,updated_at:now,confirmed_at:'',confirmed_by:''});rows.push(rec);}
     marks.push({key:hash,record_id:rec.record_id,file_hash:fileHash,at:nowIso_()});
   });
@@ -154,7 +154,7 @@ function mailProcess_(meta,text,c,retry){
     var plan=mailPlan_(text,c,hash);
     appendRows_('records',plan.rows);
     appendRows_('mail_rows',plan.marks);
-    appendRows_('events',plan.rows.map(function(r){return {at:nowIso_(),action:'メールCSV取込（確定待ち）',record_id:r.record_id,revision:'1',staff_id:r.staff_id,device_id:'mail-import',detail:'添付CSVから登録'};}));
+    appendRows_('events',plan.rows.map(function(r){return {at:nowIso_(),action:meta.message_id.indexOf('manual-')===0?'CSV手動取込（確定待ち）':'メールCSV取込（確定待ち）',record_id:r.record_id,revision:'1',staff_id:r.staff_id,device_id:'mail-import',detail:'CSVから登録'};}));
     entry.status='done';entry.rows=String(plan.total);entry.added=String(plan.rows.length);entry.skipped=String(plan.skipped);
   }catch(e){entry.error=String(e.message||e).slice(0,500);}
   mailSaveLog_(entry);return {added:Number(entry.added),skipped:Number(entry.skipped),error:entry.error};
@@ -189,7 +189,7 @@ function mailSync_(retry){
     mailEnsure_();mailAccount_();var c=mailConfig_();if(!c.senders.length)throw new Error('CSVの送信元を設定してください');
     var result={at:nowIso_(),files:0,added:0,errors:0,duplicates:0,more:false},deadline=Date.now()+210000;
     try{
-      if(retry){var ids=[];readTable_('mail_imports').rows.filter(function(r){return r.status==='error';}).forEach(function(r){if(ids.indexOf(r.message_id)<0)ids.push(r.message_id);});ids.slice(0,20).forEach(function(id){mailReadMessage_(id,c,true,result,deadline);});result.more=ids.length>20;}
+      if(retry){var ids=[];readTable_('mail_imports').rows.filter(function(r){return r.status==='error'&&r.message_id.indexOf('manual-')!==0;}).forEach(function(r){if(ids.indexOf(r.message_id)<0)ids.push(r.message_id);});ids.slice(0,20).forEach(function(id){mailReadMessage_(id,c,true,result,deadline);});result.more=ids.length>20;}
       else{
         var props=PropertiesService.getScriptProperties(),scan;try{scan=JSON.parse(props.getProperty('MAIL_SCAN')||'null');}catch(e){}
         var start=Math.floor(new Date(c.start_date+'T00:00:00+09:00').getTime()/1000);
@@ -211,6 +211,20 @@ function mailSync_(retry){
 
 /** Run once in the Apps Script editor while signed in as the mailbox owner. */
 function setupMailImport_(){mailAccount_();setup_();mailEnsure_();Logger.log('メール取込の準備完了。管理画面の「メール取込」で送信元を設定してください。');}
+
+function csvInput_(input){
+  input=input||{};var text=str_(input.text),filename=str_(input.file_name).split(/[\\/]/).pop();
+  if(!/\.csv$/i.test(filename))throw new Error('拡張子 .csv のファイルを選んでください');
+  var bytes=0;for(var i=0;i<text.length;i++){var code=text.charCodeAt(i);if(code<128)bytes++;else if(code<2048)bytes+=2;else if(code>=55296&&code<=56319&&i+1<text.length&&text.charCodeAt(i+1)>=56320&&text.charCodeAt(i+1)<=57343){bytes+=4;i++;}else bytes+=3;if(bytes>1048576)throw new Error('CSVはUTF-8換算で1MB以下にしてください');}
+  var c=mailConfig_();if(!loadMasters_().sites.some(function(s){return s.site_id===input.site_id;}))throw new Error('取込先の施設を選択してください');c.site_id=input.site_id;
+  var hash=sha256_(text),token=sha256_(text+'|'+JSON.stringify(c));return {text:text,filename:filename,config:c,hash:hash,token:token};
+}
+function adminCsvPreview(key,input){
+  needAdmin_(key);return withLock_(function(){mailEnsure_();var x=csvInput_(input),plan=mailPlan_(x.text,x.config,x.hash);return {token:x.token,total:plan.total,added:plan.rows.length,skipped:plan.skipped,sample:plan.rows.slice(0,5).map(function(r){return {record_id:r.record_id,resident_id:r.resident_id,staff_id:r.staff_id,recorded_at:r.recorded_at,text:(r.ai_summary||r.source_text||r.confirmed_text).slice(0,120)};})};});
+}
+function adminCsvImport(key,input){
+  needAdmin_(key);return withLock_(function(){mailEnsure_();var x=csvInput_(input);if(!input.preview_token||input.preview_token!==x.token)throw new Error('ファイルまたは設定が変わりました。「内容を確認」をやり直してください');return mailProcess_({message_id:'manual-'+sha256_(x.config.site_id+'|'+x.hash),part_id:'0',file_name:'[手動] '+x.filename,sender:'管理者手動',received_at:nowIso_()},x.text,x.config,true);});
+}
 
 /** Demo-only: exercise the same parser and registration logic without opening Gmail. */
 function adminMailDemo(key,text){
