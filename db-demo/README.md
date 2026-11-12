@@ -19,12 +19,14 @@ CSVアップロード・マスタID照合・8区分の日本語表示・期間/�
 
 Kebbi音声はMP3で配信します。Windows Edge/Chrome、iPhone/iPad Safari、Android Chromeを対象とし、クリック・タップで開始します。Mac専用ソフトは不要です。元音声見本から生成した再現音声で、端末読み上げ音声は使いません。
 
+2026-11-12の更新内容は [本番設置仕様](production/README.md) の末尾を参照してください。本番への反映には、Apps Scriptのファイル差し替えと再デプロイが必要です。
+
 ## 開発
 
 `db-demo/source/` が共有画面の原本です。`node tools/build-care-pages.mjs` で公開デモを作り、`node tools/build-production.mjs` でGoogle設置用8ファイルを生成します。旧API用 `gas-code.js` / `mail-import.js` は互換性のため維持し、新しい共有処理を本番ビルドで組み込みます。
 
 管理キーはGitHubに含めません。本番設置時にGoogle側で発行し、管理者が非公開で保管します。デモページに管理キーは不要です。
 
-検証: 共通処理36テスト、Chromium/WebKitの外部MP3・埋込MP3計64回の音声再生。Google本番認証とWindows/iOS/Android実機の受入確認は設置後に実施します。テスト用Firefoxは起動不具合により未検証です。
+検証: 共通処理46テスト（2026-11-12にCSV取込・重複判定・8区分の回帰テスト10件を追加。`node --test tests/care-field-csv.test.mjs`）、Chromium/WebKitの外部MP3・埋込MP3計64回の音声再生。Google本番認証とWindows/iOS/Android実機の受入確認は設置後に実施します。テスト用Firefoxは起動不具合により未検証です。
 
 職員向けアプリ（リポジトリ直下）は今回の更新対象に含めません。

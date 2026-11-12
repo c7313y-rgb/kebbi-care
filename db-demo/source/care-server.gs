@@ -9,7 +9,7 @@ function careSnapshot_(){
  readTable_('care_records').rows.forEach(function(x){extra[x.api_record_id]=JSON.parse(x.json);});
  readTable_('playbacks').rows.forEach(function(p){(plays[p.record_id]=plays[p.record_id]||[]).push({staff_id:p.staff_id,played_at:p.played_at,mode:p.mode,event_key:p.event_key,revision:p.revision});});
  var labels=itemLabels_();out.records=readTable_('records').rows.map(function(r){
-  var x=extra[r.record_id]||{id:r.record_id,type:r.type,site_id:r.site_id,resident_id:r.resident_id,items:{},answers:[],sources:[]};x=CareData.clone(x);x.type=r.type;x.site_id=r.site_id;x.resident_id=r.resident_id;x.staff_id=r.staff_id;if(x.recorded_at&&x.recorded_at!==r.recorded_at)x.time_unknown=false;x.recorded_at=r.recorded_at;x.source_text=r.source_text;x.ai_summary=r.ai_summary;x.confirmed_text=r.confirmed_text;x.health_result=x.health_result||'';var savedPlays=x.playbacks||[];x.playbacks=(plays[r.record_id]||[]).map(function(p){var old=savedPlays.filter(function(q){return q.staff_id===p.staff_id&&q.played_at===p.played_at;})[0];if(old&&old.time_unknown)p.time_unknown=true;return p;});x.unmapped_items={};
+  var x=extra[r.record_id]||{id:r.record_id,type:r.type,site_id:r.site_id,resident_id:r.resident_id,items:{},answers:[],sources:[]};x=CareData.clone(x);x.api_id=r.record_id;x.type=r.type;x.site_id=r.site_id;x.resident_id=r.resident_id;x.staff_id=r.staff_id;if(x.recorded_at&&x.recorded_at!==r.recorded_at)x.time_unknown=false;x.recorded_at=r.recorded_at;x.source_text=r.source_text;x.ai_summary=r.ai_summary;x.confirmed_text=r.confirmed_text;x.health_result=x.health_result||'';var savedPlays=x.playbacks||[];x.playbacks=(plays[r.record_id]||[]).map(function(p){var old=savedPlays.filter(function(q){return q.staff_id===p.staff_id&&q.played_at===p.played_at;})[0];if(old&&old.time_unknown)p.time_unknown=true;return p;});x.unmapped_items={};
   ITEM_KEYS_.forEach(function(k,i){if(!r[k])return;try{x.items[CareData.category(i===7?'not_applicable':labels[i])]=r[k];}catch(e){x.unmapped_items[labels[i]||k]=r[k];}});
   if(r.type==='health'&&!x.health_result&&!x.answers.length)x.health_result=r.source_text||r.ai_summary||r.confirmed_text;
   return x;
@@ -36,8 +36,7 @@ function careApply_(prepared,files){
   Object.assign(rec,{record_id:apiId,site_id:r.site_id,type:r.type,resident_id:r.resident_id,staff_id:r.staff_id,recorded_at:r.recorded_at,source_text:r.source_text,ai_summary:r.ai_summary,confirmed_text:r.confirmed_text,device_id:rec.device_id||'csv-import',status:rec.status||'draft'});
   if(r.type==='health'&&!rec.source_text)rec.source_text=CareData.healthText(r);
   labels.forEach(function(label,i){try{var cat=CareData.category(label);if(r.items[cat])rec['item_'+(i+1)]=r.items[cat];}catch(e){}});if(r.items.not_applicable)rec.item_none=r.items.not_applicable;
-  upsert_(rec,api[apiId]?api[apiId].revision:undefined,r.staff_id,'CSV取込');
-  var saved=readTable_('records').rows.filter(function(x){return x.record_id===apiId;})[0];
+  var saved=upsert_(rec,api[apiId]?api[apiId].revision:undefined,r.staff_id,'CSV取込');api[apiId]=Object.assign({},rec,{revision:String(saved.revision)});
   var entry={key:k,api_record_id:apiId,json:JSON.stringify(r)};if(cm[k])writeRow_('care_records',cm[k].row,entry);else appendRows_('care_records',[entry]);
   var newPlays=[];(r.playbacks||[]).forEach(function(q){var pk=apiId+'|'+q.staff_id+'|'+q.played_at;if(existingPlays[pk])return;existingPlays[pk]=1;newPlays.push({event_key:'csv-'+sha256_(pk),record_id:apiId,revision:saved.revision,staff_id:q.staff_id,device_id:'csv-import',site_id:r.site_id,mode:q.mode||'normal',played_at:q.played_at,received_at:nowIso_()});});appendRows_('playbacks',newPlays);
  });
